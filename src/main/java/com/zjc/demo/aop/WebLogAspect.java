@@ -4,6 +4,7 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
+import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
@@ -28,12 +29,13 @@ import tools.jackson.databind.json.JsonMapper;
  * </ul>
  *
  * <p>
- * 无需手动注册，通过 {@code AutoConfiguration.imports} 自动生效。
+ * 标注 {@code @Component}，由组件扫描注册为 Spring Bean 后生效。
  *
  * @author jiancai.zhong
  */
 @Slf4j
 @Aspect
+@Component
 public class WebLogAspect {
 
 	@Resource
@@ -90,7 +92,7 @@ public class WebLogAspect {
 				log.warn("<== {} {} | {} | cost={}ms | businessError={}", httpMethod, uri, target, costTime,
 						e.getMessage());
 			} else {
-				log.error("<== {} {} | {} | cost={}ms | error={}", httpMethod, uri, target, costTime, e.getMessage());
+				log.error("<== {} {} | {} | cost={}ms | error={}", httpMethod, uri, target, costTime, e.getMessage(), e);
 			}
 			throw e;
 		}
