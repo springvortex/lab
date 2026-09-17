@@ -3,14 +3,18 @@ package com.zjc.demo.service.impl;
 import org.springframework.stereotype.Service;
 
 import com.zjc.demo.service.DemoService;
-import com.zjc.demo.web.ApiResponse;
 
+/**
+ * {@link DemoService} 的默认实现。
+ *
+ * @author jiancai.zhong
+ */
 @Service
 public class DemoServiceImpl implements DemoService {
 
 	@Override
-	public ApiResponse<String> hello(String str) {
-		return ApiResponse.success(str);
+	public String hello(String str) {
+		return str;
 	}
 
 }

@@ -1,9 +1,18 @@
 package com.zjc.demo.service;
 
-import com.zjc.demo.web.ApiResponse;
-
+/**
+ * 示例业务接口。
+ *
+ * @author jiancai.zhong
+ */
 public interface DemoService {
 
-	public ApiResponse<String> hello(String str);
+	/**
+	 * 返回问候内容。
+	 *
+	 * @param str 输入内容
+	 * @return 问候内容
+	 */
+	public String hello(String str);
 
 }
