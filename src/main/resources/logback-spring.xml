@@ -122,8 +122,10 @@
         <appender-ref ref="ERROR_FILE"/>
     </appender>
 
-    <!-- 开发/测试环境：控制台同步输出，文件异步输出 -->
-    <springProfile name="dev,test">
+    <!-- 非生产环境：控制台同步输出，文件异步输出。
+         用 !prod 而非 dev,test，使 dev / test / 未指定或未知 profile（如 staging）都走这套配置，
+         避免激活未知 profile 时没有任何 appender 挂到 root，导致日志被静默丢弃。 -->
+    <springProfile name="!prod">
         <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
             <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
                 <level>DEBUG</level>
