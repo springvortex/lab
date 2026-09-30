@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: demo
+    name: SpringVortexDemo
   profiles:
     active: dev
     include:

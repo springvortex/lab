@@ -1,10 +1,9 @@
 package com.zjc.demo.controller;
 
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.zjc.demo.service.DemoService;
+import com.zjc.demo.service.HelloService;
 import com.zjc.demo.web.ApiResponse;
 
 import jakarta.annotation.Resource;
@@ -15,10 +14,10 @@ import jakarta.annotation.Resource;
  * @author jiancai.zhong
  */
 @RestController
-public class DemoController {
+public class HelloController {
 
 	@Resource
-	private DemoService demoService;
+	private HelloService demoService;
 
 	/**
 	 * 返回问候内容。
@@ -26,8 +25,8 @@ public class DemoController {
 	 * @param str 输入内容
 	 * @return 统一响应封装，data 为问候内容
 	 */
-	@GetMapping("/{str}")
-	public ApiResponse<String> hello(@PathVariable String str) {
-		return ApiResponse.success(demoService.hello(str));
+	@GetMapping("/hello")
+	public ApiResponse<String> hello() {
+		return ApiResponse.success(demoService.hello());
 	}
 }

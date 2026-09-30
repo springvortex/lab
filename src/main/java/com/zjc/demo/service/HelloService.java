@@ -5,7 +5,7 @@ package com.zjc.demo.service;
  *
  * @author jiancai.zhong
  */
-public interface DemoService {
+public interface HelloService {
 
 	/**
 	 * 返回问候内容。
@@ -13,6 +13,6 @@ public interface DemoService {
 	 * @param str 输入内容
 	 * @return 问候内容
 	 */
-	public String hello(String str);
+	public String hello();
 
 }
