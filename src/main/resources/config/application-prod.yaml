@@ -1,0 +1,7 @@
+springdoc:
+  # dev 开启，prod 关闭
+  show-actuator: true
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
