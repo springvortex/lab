@@ -29,7 +29,7 @@ class ProfileConfigTest {
      * 按指定激活的 profile 加载真实配置文件，把环境交给断言使用。
      *
      * @param activeProfile 要激活的环境 profile（{@code pub} 由 {@code include} 自动叠加）
-     * @param consumer 对环境的断言逻辑
+     * @param consumer      对环境的断言逻辑
      */
     private static void withProfile(String activeProfile, java.util.function.Consumer<Environment> consumer) {
         new ApplicationContextRunner()
