@@ -55,7 +55,8 @@ public class WebConfig implements WebMvcConfigurer {
      *
      * <p>
      * 三个可选来源：{@code app.cors.allowed-origins}、{@code app.cors.max-age}、
-     * {@code app.cors.allow-credentials}，均有默认值，不配也能跑。
+     * {@code app.cors.allow-credentials}，代码内均有默认值，不配也能跑；模板已在
+     * {@code config/application-pub.yaml} 显式列出，改配置即可生效。
      * <b>生产环境务必把来源收敛到具体域名</b>，不要保留 {@code *}。
      *
      * @param registry 跨域注册表
