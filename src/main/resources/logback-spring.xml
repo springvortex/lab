@@ -20,6 +20,17 @@
         grep '某个 traceId' logs/info/*.log
     -->
 
+    <!-- 异步队列容量，单位是“条”不是字节。每个级别一条独立队列（AsyncAppender 只能挂一个下游）。 -->
+    <property name="ASYNC_QUEUE_SIZE" value="8192"/>
+    <!--
+      丢弃阈值：注意它是“剩余容量的绝对条数”，不是百分比。
+      当 remainingCapacity 小于该值时，AsyncAppender 开始丢弃可丢弃事件；
+      这里取队列容量的 20%（8192 的 20% 约为 1638），与 logback 自身的默认算法（queueSize / 5）一致。
+      可丢弃事件只有 TRACE / DEBUG / INFO（AsyncAppender.isDiscardable 判定 level <= INFO），
+      WARN / ERROR 永远不会被丢弃，所以 ERROR 队列设 0 也不会少一条错误日志。
+    -->
+    <property name="ASYNC_DISCARD_THRESHOLD" value="1638"/>
+
     <!-- DEBUG 级别文件输出 -->
     <appender name="DEBUG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <encoder>
@@ -32,11 +43,6 @@
             <maxHistory>180</maxHistory>
             <totalSizeCap>2GB</totalSizeCap>
         </rollingPolicy>
-        <filter class="ch.qos.logback.classic.filter.LevelFilter">
-            <level>DEBUG</level>
-            <onMatch>ACCEPT</onMatch>
-            <onMismatch>DENY</onMismatch>
-        </filter>
     </appender>
 
     <!-- INFO 级别文件输出（仅 INFO） -->
@@ -51,11 +57,6 @@
             <maxHistory>180</maxHistory>
             <totalSizeCap>2GB</totalSizeCap>
         </rollingPolicy>
-        <filter class="ch.qos.logback.classic.filter.LevelFilter">
-            <level>INFO</level>
-            <onMatch>ACCEPT</onMatch>
-            <onMismatch>DENY</onMismatch>
-        </filter>
     </appender>
 
     <!-- WARN 级别文件输出 -->
@@ -70,11 +71,6 @@
             <maxHistory>180</maxHistory>
             <totalSizeCap>2GB</totalSizeCap>
         </rollingPolicy>
-        <filter class="ch.qos.logback.classic.filter.LevelFilter">
-            <level>WARN</level>
-            <onMatch>ACCEPT</onMatch>
-            <onMismatch>DENY</onMismatch>
-        </filter>
     </appender>
 
     <!-- ERROR 级别文件输出 -->
@@ -89,47 +85,61 @@
             <maxHistory>180</maxHistory>
             <totalSizeCap>2GB</totalSizeCap>
         </rollingPolicy>
+    </appender>
+
+    <appender name="ASYNC_DEBUG_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>${ASYNC_QUEUE_SIZE}</queueSize>
+        <discardingThreshold>${ASYNC_DISCARD_THRESHOLD}</discardingThreshold>
+        <neverBlock>false</neverBlock>
+        <includeCallerData>false</includeCallerData>
+        <maxFlushTime>3000</maxFlushTime>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>DEBUG</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <appender-ref ref="DEBUG_FILE"/>
+    </appender>
+
+    <appender name="ASYNC_INFO_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>${ASYNC_QUEUE_SIZE}</queueSize>
+        <discardingThreshold>${ASYNC_DISCARD_THRESHOLD}</discardingThreshold>
+        <neverBlock>false</neverBlock>
+        <includeCallerData>false</includeCallerData>
+        <maxFlushTime>3000</maxFlushTime>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>INFO</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <appender-ref ref="INFO_FILE"/>
+    </appender>
+
+    <appender name="ASYNC_WARN_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>${ASYNC_QUEUE_SIZE}</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>false</neverBlock>
+        <includeCallerData>false</includeCallerData>
+        <maxFlushTime>3000</maxFlushTime>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>WARN</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+        <appender-ref ref="WARN_FILE"/>
+    </appender>
+
+    <appender name="ASYNC_ERROR_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>${ASYNC_QUEUE_SIZE}</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>false</neverBlock>
+        <includeCallerData>false</includeCallerData>
+        <maxFlushTime>3000</maxFlushTime>
         <filter class="ch.qos.logback.classic.filter.LevelFilter">
             <level>ERROR</level>
             <onMatch>ACCEPT</onMatch>
             <onMismatch>DENY</onMismatch>
         </filter>
-    </appender>
-
-    <!-- Logback AsyncAppender 只允许挂载一个下游 Appender，因此每个级别单独异步 -->
-    <appender name="ASYNC_DEBUG_FILE" class="ch.qos.logback.classic.AsyncAppender">
-        <queueSize>8192</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-        <neverBlock>false</neverBlock>
-        <includeCallerData>false</includeCallerData>
-        <maxFlushTime>3000</maxFlushTime>
-        <appender-ref ref="DEBUG_FILE"/>
-    </appender>
-
-    <appender name="ASYNC_INFO_FILE" class="ch.qos.logback.classic.AsyncAppender">
-        <queueSize>8192</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-        <neverBlock>false</neverBlock>
-        <includeCallerData>false</includeCallerData>
-        <maxFlushTime>3000</maxFlushTime>
-        <appender-ref ref="INFO_FILE"/>
-    </appender>
-
-    <appender name="ASYNC_WARN_FILE" class="ch.qos.logback.classic.AsyncAppender">
-        <queueSize>8192</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-        <neverBlock>false</neverBlock>
-        <includeCallerData>false</includeCallerData>
-        <maxFlushTime>3000</maxFlushTime>
-        <appender-ref ref="WARN_FILE"/>
-    </appender>
-
-    <appender name="ASYNC_ERROR_FILE" class="ch.qos.logback.classic.AsyncAppender">
-        <queueSize>8192</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-        <neverBlock>false</neverBlock>
-        <includeCallerData>false</includeCallerData>
-        <maxFlushTime>3000</maxFlushTime>
         <appender-ref ref="ERROR_FILE"/>
     </appender>
 
