@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<configuration scan="true" scanPeriod="10 seconds" debug="false">
+<!-- scan 关闭：打成 fat jar 后 logback-spring.xml 不在文件系统中、无法被监听，
+     开启会在每次启动时打印 "Watching .xml files requires that the main configuration file is
+     reachable as a URL" 警告，并在生产常驻一个无意义的扫描线程。
+     开发期改日志配置由 devtools 触发重启生效，不需要 logback 自己的热扫描。 -->
+<configuration scan="false" debug="false">
     <springProperty name="application" scope="context" source="spring.application.name" defaultValue="app"/>
     <springProperty name="port" scope="context" source="server.port" defaultValue="0"/>
     <contextName>logback</contextName>
@@ -155,9 +159,17 @@
         </root>
     </springProfile>
 
-    <!-- 生产环境：仅保留异步文件输出 -->
+    <!-- 生产环境：异步文件输出 + 控制台输出。-->
     <springProfile name="prod">
+        <appender name="PROD_STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <Pattern>${FILE_LOG_PATTERN}</Pattern>
+                <charset>UTF-8</charset>
+            </encoder>
+        </appender>
+
         <root level="INFO">
+            <appender-ref ref="PROD_STDOUT"/>
             <appender-ref ref="ASYNC_DEBUG_FILE"/>
             <appender-ref ref="ASYNC_INFO_FILE"/>
             <appender-ref ref="ASYNC_WARN_FILE"/>
