@@ -5,9 +5,16 @@
     <contextName>logback</contextName>
     <property name="LOG_HOME" value="logs/${application}"/>
     <property name="CONSOLE_LOG_PATTERN"
-              value="[%d{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%highlight(%-5level)] [${application}:${port}] [%cyan(%logger{50})] [%msg]%n"/>
+              value="[%d{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%highlight(%-5level)] [${application}:${port}] [%X{traceId:--}] [%cyan(%logger{50})] [%msg]%n"/>
     <property name="FILE_LOG_PATTERN"
-              value="[%d{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%-5level] [${application}:${port}] [%logger{50}] [%msg]%n"/>
+              value="[%d{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%-5level] [${application}:${port}] [%X{traceId:--}] [%logger{50}] [%msg]%n"/>
+    <!--
+      traceId 由 filter/TraceIdFilter 写入 MDC，pattern 通过 MDC 占位符取值，
+      并在取不到时输出缺省占位符，保证非 HTTP 线程（定时任务、MQ 消费等）日志列数稳定，
+      便于日志平台按列解析。
+      排查时用响应体 / 响应头里的 traceId 捞一整条链路：
+        grep '某个 traceId' logs/info/*.log
+    -->
 
     <!-- DEBUG 级别文件输出 -->
     <appender name="DEBUG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
