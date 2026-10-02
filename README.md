@@ -74,13 +74,3 @@ cd your-project && rm -rf .git && git init
 | _（待补充）_ | | | | |
 
 ---
-
-## 本分支的文件说明
-
-| 文件 | 用途 |
-|------|------|
-| `README.md` | 本索引（唯一需要维护的内容） |
-| `LICENSE` | MIT，与 `template` 分支保持一致 |
-| `.gitignore` | 空分支上的基础忽略规则（`target/`、IDE 目录、`logs/` 等） |
-
-代码、构建脚本、配置一律不放在 `main`。
