@@ -1,0 +1,65 @@
+# EditorConfig — 跨编辑器/IDE 统一基础格式
+# https://editorconfig.org
+# IntelliJ IDEA / VS Code / Eclipse 均原生支持（无需装插件）
+
+root = true
+
+# ---------------------------------------------------------------- 全局默认值
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+# ---------------------------------------------------------------- Java 源码
+[*.java]
+indent_style = space
+indent_size = 4
+max_line_length = 120
+# IntelliJ 专属：续行缩进与 import 合并阈值（避免 *. 通配导入）
+ij_continuation_indent_size = 8
+ij_use_single_class_imports = true
+ij_java_class_count_to_use_import_on_demand = 999
+ij_java_names_count_to_use_import_on_demand = 999
+ij_java_imports_layout = *, jakarta.**, java.**, javax.**, org.springframework.**, |
+
+# ---------------------------------------------------------------- 配置与脚本
+[*.{yml,yaml,json}]
+indent_style = space
+indent_size = 2
+
+[*.xml]
+indent_style = space
+indent_size = 4
+
+[*.properties]
+charset = utf-8
+
+[*.md]
+# Markdown 里行尾两个空格表示换行，不去尾
+trim_trailing_whitespace = false
+
+# Windows 批处理 / PowerShell 必须 CRLF，否则执行异常
+[*.{bat,cmd,ps1}]
+end_of_line = crlf
+
+# Shell 脚本必须 LF，CRLF 会报 bad interpreter: /bin/sh^M
+[*.sh]
+end_of_line = lf
+
+[mvnw]
+end_of_line = lf
+
+# Makefile 的语法依赖 Tab，不能改
+[{Makefile,*.mk}]
+indent_style = tab
+indent_size = 4
+tab_width = 4
+
+# ---------------------------------------------------------------- 生成目录
+[target/**]
+# 避免格式化工具误改构建产物
+insert_final_newline = false
+trim_trailing_whitespace = false

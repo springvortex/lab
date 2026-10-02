@@ -33,4 +33,7 @@ build/
 .vscode/
 /logs/
 /.claude/
+
+### other ###
 /set_git_local.bat
+/.workbuddy/
