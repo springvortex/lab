@@ -18,6 +18,15 @@
     <name>SpringVortexDemo</name>
     <description>Spring Boot 4 脚手架模板</description>
 
+    <!-- 模板被复制到新项目后，记得把 <name> / <description> / 这里的版权年份与持有人一起改掉 -->
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
     <properties>
         <java.version>25</java.version>
         <maven.compiler.source>25</maven.compiler.source>
