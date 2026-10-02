@@ -25,7 +25,8 @@ import org.springframework.context.annotation.Configuration;
 public class JacksonConfig {
 
     /**
-     * 是否把 Long 序列化成字符串。默认开启，可通过 {@code app.jackson.long-to-string} 关闭。
+     * 是否把 Long 序列化成字符串。默认开启，可通过 {@code app.jackson.long-to-string} 关闭
+     * （模板已把该项显式写在 {@code config/application-pub.yaml} 里）。
      *
      * <p>
      * 背景：JS 的 Number 是双精度浮点，安全整数范围是 ±(2^53-1)。后端用雪花算法生成的
