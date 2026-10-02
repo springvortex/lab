@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.ErrorResponseException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
@@ -294,6 +296,46 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleAsyncTimeout(AsyncRequestTimeoutException e) {
         log.warn("异步请求处理超时: {}", e.getMessage());
         return ApiResponse.<Void>failure(ApiResponseConstant.REQUEST_TIMEOUT).toResponseEntity();
+    }
+
+    /**
+     * 框架抛出的「自带状态码」异常，按异常状态码如实返回，而不是降级成 500。
+     *
+     * <p>
+     * Spring 6 起框架层大量使用 {@link ErrorResponseException} 及其子类
+     * {@link ResponseStatusException} 表达 4xx / 5xx，例如 API 版本管理抛出的
+     * {@code MissingApiVersionException}（没带版本）与
+     * {@code InvalidApiVersionException}（版本不在 supported 清单里），
+     * 它们自带 400。
+     *
+     * <p>
+     * <b>不处理会出现什么：</b>这些异常会掉进下面的兜底 {@code Exception} 分支，
+     * 被统一改写成 <b>500 + ERROR 堆栈</b>——状态码语义丢失，调用方、网关与 APM
+     * 都会把它误判成服务端故障，而实际原因只是「请求少了个版本头」。
+     * 本方法按异常自带的状态码返回，4xx 用 WARN 记录（属于调用方问题），
+     * 5xx 仍按 ERROR 记录并隐藏细节。
+     *
+     * <p>
+     * 注意本方法<b>不会</b>抢走更具体处理器的活：{@code NoResourceFoundException}、
+     * {@code HttpRequestMethodNotSupportedException} 等都有各自的
+     * {@code @ExceptionHandler}，Spring 优先选最具体的匹配。
+     *
+     * @param e 带状态码的框架异常
+     * @return 与异常状态码一致的响应
+     */
+    @ExceptionHandler(ErrorResponseException.class)
+    public ResponseEntity<ApiResponse<Void>> handleErrorResponse(ErrorResponseException e) {
+        HttpStatus status = HttpStatus.resolve(e.getStatusCode().value());
+        HttpStatus resolved = status == null ? HttpStatus.INTERNAL_SERVER_ERROR : status;
+        if (resolved.is5xxServerError()) {
+            log.error("框架异常(状态码 {}): {}", resolved.value(), e.getMessage(), e);
+            return ApiResponse.<Void>failure(ApiResponseConstant.INTERNAL_ERROR).toResponseEntity();
+        }
+        // 4xx 属于调用方用法问题，把框架给出的具体原因透出去更有助于联调（不含内部实现细节）
+        String detail = e.getBody().getDetail();
+        String message = detail == null ? resolved.getReasonPhrase() : detail;
+        log.warn("框架异常(状态码 {}): {}", resolved.value(), message);
+        return ApiResponse.<Void>failure(resolved.value(), message).toResponseEntity();
     }
 
     /**

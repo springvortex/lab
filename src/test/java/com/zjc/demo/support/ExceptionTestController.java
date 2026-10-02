@@ -6,12 +6,14 @@ import com.zjc.demo.web.ApiResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.util.Map;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * 测试专用接口，用于从真实 HTTP 链路触发各类异常与正常返回。
@@ -63,6 +65,39 @@ public class ExceptionTestController {
     @GetMapping("/business-enum")
     public ApiResponse<Void> businessEnum() {
         throw new BusinessException(ApiResponseConstant.CONFLICT);
+    }
+
+    /**
+     * 抛出带 4xx 状态码与原因的 {@code ResponseStatusException}。
+     *
+     * <p>
+     * 用来验证框架级「自带状态码的异常」不会被兜底改写成 500，且原因会透给调用方。
+     *
+     * @return 不会正常返回，必定抛异常
+     */
+    @GetMapping("/status-conflict")
+    public ApiResponse<Void> statusConflict() {
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "订单状态冲突");
+    }
+
+    /**
+     * 抛出不带原因的 4xx {@code ResponseStatusException}，验证消息回退到状态码短语。
+     *
+     * @return 不会正常返回，必定抛异常
+     */
+    @GetMapping("/status-no-reason")
+    public ApiResponse<Void> statusNoReason() {
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+    }
+
+    /**
+     * 抛出 5xx 的 {@code ResponseStatusException}，验证服务端错误仍然隐藏细节。
+     *
+     * @return 不会正常返回，必定抛异常
+     */
+    @GetMapping("/status-server-error")
+    public ApiResponse<Void> statusServerError() {
+        throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "模拟内部细节，不应出现在响应体里");
     }
 
     /**
