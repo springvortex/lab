@@ -12,13 +12,48 @@ spring:
   mvc:
     async:
       request-timeout: 30s
+    # 接口版本管理（Boot 4.0 新能力）：版本号从请求头读取，URL 不带版本号。
+    apiversion:
+      use:
+        header: X-API-Version
+      # 显式声明支持的版本；不在清单里的版本会返回 400，而不是静默降级。
+      supported: "1.0,2.0"
+      # 必填！不给默认版本时，凡是没带版本头的请求都会抛 MissingApiVersionException，
+      # 结果是「连 /hello 这种没版本化的接口都变成 500」（亲测）。默认版本让老客户端
+      # 与未版本化的接口照常工作，是启用版本管理时唯一安全的起点。
+      default: "1.0"
   http:
     clients:
       connect-timeout: 3s
       read-timeout: 10s
+    # 声明式 HTTP 客户端（Boot 4.0 新能力）按 group 配置。
+    # group 名与 @ImportHttpServices(group = "catalog") 对应；
+    # 这里指向本应用自己，是为了让示例不依赖外部服务就能跑通（见 CatalogDemoController）。
+    serviceclient:
+      catalog:
+        base-url: http://localhost:${server.port}
+        connect-timeout: 3s
+        read-timeout: 10s
+        default-header:
+          X-Client: spring-vortex-demo
   jackson:
     time-zone: Asia/Shanghai
     date-format: yyyy-MM-dd HH:mm:ss
+    # 读/写特性开关（Boot 4.1 新能力）：绑定 StreamReadFeature / StreamWriteFeature，
+    # 不区分 JSON、CBOR、XML，一次配置全格式生效。
+    read:
+      # 实测默认 false。开启后 {"a":1,"a":2} 这种重复字段的报文会被直接拒绝，
+      # 避免「网关与业务代码取值规则不同」被利用来做参数覆盖。
+      strict-duplicate-detection: true
+    write:
+      # 实测默认 false。开启后 BigDecimal 用普通小数输出，不再是 1.0E+7 这类科学计数法。
+      write-bigdecimal-as-plain: true
+    # 解析器级硬约束：防「深度嵌套 / 超长字符串」这类解析型攻击。
+    factory:
+      constraints:
+        read:
+          max-nesting-depth: 1000
+          max-string-length: 100000000
 
 management:
   endpoints:
@@ -33,3 +68,7 @@ management:
   info:
     env:
       enabled: false
+    # /actuator/info 的 process 段（Boot 4.1 新增 uptime、startTime、currentTime、
+    # timezone、locale、workingDirectory 等字段）。默认关闭，按需开启——它会暴露运行环境信息。
+    process:
+      enabled: true

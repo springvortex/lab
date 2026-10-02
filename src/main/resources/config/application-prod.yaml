@@ -6,3 +6,10 @@ springdoc:
     enabled: false
   swagger-ui:
     enabled: false
+
+# 生产把跨域来源收敛到具体域名（application-cors.yaml 里默认是 "*"）。
+# 多个来源用英文逗号分隔；这里用占位域名，部署前必须替换成真实域名，
+# 否则浏览器跨域请求会被拒绝——这是有意选的安全默认值：宁可先不通，也不要默认放通。
+app:
+  cors:
+    allowed-origins: "https://your-domain.com"
