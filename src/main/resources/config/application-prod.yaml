@@ -1,6 +1,7 @@
+# 接口文档（springdoc）。默认开启，方便 dev / test 直接用；生产在 application-prod.yaml 里关闭。
 springdoc:
-  # dev 开启，prod 关闭
-  show-actuator: true
+  # 是否把 actuator 端点也纳入文档分组
+  show-actuator: false
   api-docs:
     enabled: false
   swagger-ui:

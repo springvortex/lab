@@ -1,7 +1,21 @@
+server:
+  tomcat:
+    connection-timeout: 20s
+    keep-alive-timeout: 20s
+    max-keep-alive-requests: 100
+    max-swallow-size: 2MB
+
 spring:
   threads:
     virtual:
       enabled: true
+  mvc:
+    async:
+      request-timeout: 30s
+  http:
+    clients:
+      connect-timeout: 3s
+      read-timeout: 10s
   jackson:
     time-zone: Asia/Shanghai
     date-format: yyyy-MM-dd HH:mm:ss
