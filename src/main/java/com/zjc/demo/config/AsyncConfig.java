@@ -1,8 +1,12 @@
 package com.zjc.demo.config;
 
+import com.zjc.demo.async.AsyncTaskMetricsDecorator;
 import com.zjc.demo.async.MdcTaskDecorator;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.core.task.TaskDecorator;
 import org.springframework.scheduling.annotation.EnableAsync;
 
@@ -18,6 +22,13 @@ import org.springframework.scheduling.annotation.EnableAsync;
  * {@code TaskDecorator} 并自动应用到它创建的执行器上，因此<b>不需要</b>自己定义
  * {@code @Async} 的执行器 Bean，也不会覆盖 Boot 对虚拟线程等默认配置的适配。</li>
  * </ol>
+ *
+ * <p>
+ * <b>Boot 4 起可以注册多个 {@code TaskDecorator}：</b>Boot 会把它们组装成一个
+ * {@code CompositeTaskDecorator}，按 {@code @Order} 的顺序包装任务。
+ * 注意「依次包装」的语义——<b>列表里最后一个（{@code @Order} 值最大的）是最外层</b>，
+ * 最先执行、最后收尾。本类给指标埋点标了 {@code @Order(Ordered.LOWEST_PRECEDENCE)}，
+ * 让它成为最外层，测到的就是包含链路透传开销在内的端到端耗时。
  *
  * <p>
  * <b>注意事项：</b>
@@ -41,7 +52,24 @@ public class AsyncConfig {
      * @return MDC 透传装饰器
      */
     @Bean
+    @Order(0)
     public TaskDecorator mdcTaskDecorator() {
         return new MdcTaskDecorator();
+    }
+
+    /**
+     * 异步任务耗时埋点装饰器，与上一个是<b>并列</b>关系，两者会一起生效。
+     *
+     * <p>
+     * 这是 Boot 4 的新能力：注册多个 {@code TaskDecorator} Bean 不再冲突，
+     * 由 Boot 自动组合，业务上可以把「上下文透传」和「指标埋点」拆成两个独立关注点。
+     *
+     * @param meterRegistry 指标注册表，由 actuator 自动配置提供
+     * @return 耗时埋点装饰器
+     */
+    @Bean
+    @Order(Ordered.LOWEST_PRECEDENCE)
+    public TaskDecorator asyncTaskMetricsDecorator(MeterRegistry meterRegistry) {
+        return new AsyncTaskMetricsDecorator(meterRegistry);
     }
 }
