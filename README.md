@@ -384,28 +384,13 @@ curl -X POST http://localhost:8000/demo/jackson/echo \
 
 ```java
 RestTestClient client = RestTestClient.bindTo(mockMvc).build();
-
-client.
-
-get().
-
-uri("/hello")
-        .
-
-exchange()
-        .
-
-expectStatus().
-
-isOk()
-        .
-
-expectBody()
-        .
-
-jsonPath("$.data").
-
-isEqualTo("hello SpringVortexDemo!");
+client.get().uri("/hello")
+    .exchange()
+    .expectStatus()
+    .isOk()
+    .expectBody()
+    .jsonPath("$.data")
+    .isEqualTo("hello SpringVortexDemo!");
 
 // 也可以直接把响应体变成对象，避免手写 JSON 路径
 String body = client.get().uri("/hello")
