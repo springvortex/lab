@@ -75,12 +75,12 @@ body」的做法。好处是网关重试、前端拦截器、APM 告警都能按
 
 ```json
 {
-    "success": false,
-    "code": 404,
-    "message": "资源不存在",
-    "data": null,
-    "traceId": "06e9610c586245f3af21807231411a75",
-    "timestamp": "1790761655561"
+  "success": false,
+  "code": 404,
+  "message": "资源不存在",
+  "data": null,
+  "traceId": "06e9610c586245f3af21807231411a75",
+  "timestamp": "1790761655561"
 }
 ```
 
@@ -106,11 +106,11 @@ body」的做法。好处是网关重试、前端拦截器、APM 告警都能按
 
 ```yaml
 spring:
-    mvc:
-        throw-exception-if-no-handler-found: true  # 没有 Handler 时抛异常
-    web:
-        resources:
-            add-mappings: false                    # 关掉默认的 /** 静态资源映射
+  mvc:
+    throw-exception-if-no-handler-found: true  # 没有 Handler 时抛异常
+  web:
+    resources:
+      add-mappings: false                      # 关掉默认的 /** 静态资源映射
 ```
 
 只配第一个是不够的：Boot 默认的静态资源 Handler 映射在 `/**` 上，会把所有未匹配路径先接住，
@@ -254,10 +254,10 @@ public class UserService {
 
 ```yaml
 app:
-    cors:
-        allowed-origins: '*'      # 生产务必收敛到具体域名
-        max-age: 3600
-        allow-credentials: false  # 开启凭证时 allowed-origins 不能是 *
+  cors:
+    allowed-origins: '*'      # 生产务必收敛到具体域名
+    max-age: 3600
+    allow-credentials: false  # 开启凭证时 allowed-origins 不能是 *
 ```
 
 > 注意：一旦 `allow-credentials: true` 而 `allowed-origins: *`，Spring 会在处理请求的瞬间抛
@@ -296,20 +296,20 @@ Boot 2 的定制器是 `Jackson2ObjectMapperBuilderCustomizer`（Boot 4 改名 `
 
 ```yaml
 server:
-    tomcat:
-        connection-timeout: 20s      # accept 后等待请求行的时间；Tomcat 默认 60s，这里收紧到 20s
-        keep-alive-timeout: 20s      # 长连接空闲等待下一个请求的时间；不设则取 connection-timeout
-        max-keep-alive-requests: 100 # 单连接最多复用次数，防长连接被单客户端长期占用
-        max-swallow-size: 2MB        # 客户端中断时最多再读多少请求体，以便正常回响应
+  tomcat:
+    connection-timeout: 20s       # accept 后等待请求行的时间；Tomcat 默认 60s，这里收紧到 20s
+    keep-alive-timeout: 20s       # 长连接空闲等待下一个请求的时间；不设则取 connection-timeout
+    max-keep-alive-requests: 100  # 单连接最多复用次数，防长连接被单客户端长期占用
+    max-swallow-size: 2MB         # 客户端中断时最多再读多少请求体，以便正常回响应
 spring:
-    mvc:
-        async:
-            request-timeout: 30s     # Callable / DeferredResult；不配就是永不超时
+  mvc:
+    async:
+      request-timeout: 30s        # Callable / DeferredResult；不配就是永不超时
 app:
-    http:
-        client:
-            connect-timeout: 3000    # 出站建连（毫秒），由 RestTemplateConfig 读取
-            read-timeout: 10000      # 出站读响应（毫秒）；不配 = 无限等待
+  http:
+    client:
+      connect-timeout: 3000       # 出站建连（毫秒），由 RestTemplateConfig 读取
+      read-timeout: 10000         # 出站读响应（毫秒）；不配 = 无限等待
 ```
 
 三个容易踩的点：
@@ -546,7 +546,7 @@ git clone --branch template2.8 --single-branch <url> your-project && cd your-pro
 <version>0.0.1-SNAPSHOT</version>
 
 <properties>
-<java.version>8</java.version>   <!-- Boot 2.7 支持 8 ~ 19，按需调整 -->
+    <java.version>8</java.version>     <!-- Boot 2.7 支持 8 ~ 19，按需调整 -->
 </properties>
 ```
 
@@ -584,8 +584,8 @@ IDE 的「Refactor → Rename」只覆盖 1/2/3，**4 和 5 必须手动改**。
 
 ```yaml
 spring:
-    profiles:
-        active: @activatedProperties@    # 交给构建期替换，或用部署时的 --spring.profiles.active 覆盖
+  profiles:
+    active: @activatedProperties@  # 交给构建期替换，或用部署时的 --spring.profiles.active 覆盖
 ```
 
 常见做法：
