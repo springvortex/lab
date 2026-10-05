@@ -1,6 +1,6 @@
 # Spring Boot 4 脚手架模板
 
-> 本 README 位于 `template` 分支。这里是一切新项目的起点，本身不承载任何业务。
+> 本 README 位于 `sample/boot4-jdk25` 分支。这里是一切新项目的起点，本身不承载任何业务。
 
 ## 技术栈
 
@@ -413,22 +413,22 @@ curl http://localhost:8000/swagger-ui/index.html
 ## 分支策略（重要）
 
 ```
-main                     默认分支：纯索引，只记录各分支用途，不含代码
-└── template             基座分支：本 README 所在，保持通用、零业务耦合
-    ├── xxxxx-mysql      教程分支：Spring Boot 集成 MySQL
-    ├── xxxxx-redis      教程分支：集成 Redis
-    └── xxxxx-…          每个教程分支只讲一个主题
+main                    默认分支：纯索引，只记录各分支用途，不含代码
+└── sample/boot4-jdk25  基座分支：本 README 所在，保持通用、零业务耦合
+    ├── xxxxx-mysql     教程分支：Spring Boot 集成 MySQL
+    ├── xxxxx-redis     教程分支：集成 Redis
+    └── xxxxx-…         每个教程分支只讲一个主题
 ```
 
 约定：
 
 1. `main` **只做导航**，不写代码，是别人 clone 下来看到的第一个分支。
-2. 任何教程 / 实验分支**一律从 `template` 拉取**，不要在别的教程分支上继续叠feature，避免主题互相污染。
+2. 任何教程 / 实验分支**一律从对应的 `sample/*` 脚手架分支拉取**，不要在别的教程分支上继续叠feature，避免主题互相污染。
 3. 新建教程分支后在 `main` 的 README 里补一行记录，保持索引可查。
-4. 注意：远端 `origin/HEAD` 指向 `main`，从 `template` 提 PR / push 时要显式指定目标分支。
+4. 注意：远端 `origin/HEAD` 指向 `main`，从 `sample/boot4-jdk25` 提 PR / push 时要显式指定目标分支。
 
 ```bash
-git switch template && git pull --ff-only
+git switch sample/boot4-jdk25 && git pull --ff-only
 git switch -c xxxxx-mysql
 git push -u origin xxxxx-mysql
 ```
@@ -441,10 +441,10 @@ git push -u origin xxxxx-mysql
 
 ```bash
 # 同一仓库內拉分支
-git switch template && git pull --ff-only && git switch -c feature/your-project
+git switch sample/boot4-jdk25 && git pull --ff-only && git switch -c feature/your-project
 
 # 或独立新仓库
-git clone --branch template --single-branch <url> your-project && cd your-project && rm -rf .git && git init
+git clone --branch sample/boot4-jdk25 --single-branch <url> your-project && cd your-project && rm -rf .git && git init
 ```
 
 ### 2. 改 Maven 坐标（`pom.xml`）
