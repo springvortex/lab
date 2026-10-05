@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 import com.zjc.demo.constant.ApiResponseConstant;
+import com.zjc.demo.constant.ErrorCodeConstant;
 import com.zjc.demo.constant.TraceConstant;
 
 import lombok.Builder;
@@ -51,13 +52,6 @@ import lombok.NoArgsConstructor;
  *
  * @param <T> 响应数据泛型
  * @author jiancai.zhong
- */
-/**
- * {@code @Builder} <b>不标在类上，而是标在下面的构造器上</b>。
- *
- * <p>
- * 标在类上时，Lombok 会为<b>所有字段</b>生成构建方法（含 {@code traceId} 与 {@code timestamp}），
- * 后者会破坏「时间戳不可覆盖」的约束；标在构造器上则只认构造器参数，是一条更窄、更可控的口子。
  */
 @Data
 @NoArgsConstructor
