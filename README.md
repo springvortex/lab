@@ -64,12 +64,12 @@ body」的做法。好处是网关重试、前端拦截器、APM 告警都能按
 
 ```json
 {
-    "success": false,
-    "code": 404,
-    "message": "资源不存在",
-    "data": null,
-    "traceId": "06e9610c586245f3af21807231411a75",
-    "timestamp": "1790761655561"
+  "success": false,
+  "code": 404,
+  "message": "资源不存在",
+  "data": null,
+  "traceId": "06e9610c586245f3af21807231411a75",
+  "timestamp": "1790761655561"
 }
 ```
 
@@ -202,10 +202,10 @@ UserApi userApi(RestClient.Builder builder) {          // 已带链路透传
 
 ```yaml
 app:
-    cors:
-        allowed-origins: '*'      # 生产务必收敛到具体域名
-        max-age: 3600
-        allow-credentials: false  # 开启凭证时 allowed-origins 不能是 *
+  cors:
+    allowed-origins: '*'      # 生产务必收敛到具体域名
+    max-age: 3600
+    allow-credentials: false  # 开启凭证时 allowed-origins 不能是 *
 ```
 
 > 注意：一旦 `allow-credentials: true` 而 `allowed-origins: *`，Spring 会在处理请求的瞬间抛
@@ -241,19 +241,19 @@ app:
 
 ```yaml
 server:
-    tomcat:
-        connection-timeout: 20s      # accept 后等待请求行的时间；Tomcat 默认 60s，这里收紧到 20s
-        keep-alive-timeout: 20s      # 长连接空闲等待下一个请求的时间；不设则取 connection-timeout
-        max-keep-alive-requests: 100 # 单连接最多复用次数，防长连接被单客户端长期占用
-        max-swallow-size: 2MB        # 客户端中断时最多再读多少请求体，以便正常回响应
+  tomcat:
+    connection-timeout: 20s       # accept 后等待请求行的时间；Tomcat 默认 60s，这里收紧到 20s
+    keep-alive-timeout: 20s       # 长连接空闲等待下一个请求的时间；不设则取 connection-timeout
+    max-keep-alive-requests: 100  # 单连接最多复用次数，防长连接被单客户端长期占用
+    max-swallow-size: 2MB         # 客户端中断时最多再读多少请求体，以便正常回响应
 spring:
-    mvc:
-        async:
-            request-timeout: 30s     # @Async / Callable / DeferredResult / SSE；不配就是永不超时
-    http:
-        client:
-            connect-timeout: 3s      # 出站建连（RestClient / RestTemplate / WebClient 通用）
-            read-timeout: 10s        # 出站读响应；不配 = 无限等待
+  mvc:
+    async:
+      request-timeout: 30s        # @Async / Callable / DeferredResult / SSE；不配就是永不超时
+  http:
+    client:
+      connect-timeout: 3s         # 出站建连（RestClient / RestTemplate / WebClient 通用）
+      read-timeout: 10s           # 出站读响应；不配 = 无限等待
 ```
 
 三个容易踩的点：
@@ -464,7 +464,7 @@ git clone --branch template3 --single-branch <url> your-project && cd your-proje
 <version>0.0.1-SNAPSHOT</version>
 
 <properties>
-<java.version>21</java.version>   <!-- Boot 3 支持 17 ~ 25，按需调整 -->
+    <java.version>21</java.version>    <!-- Boot 3 支持 17 ~ 25，按需调整 -->
 </properties>
 ```
 
@@ -500,8 +500,8 @@ IDE 的「Refactor → Rename」只覆盖 1/2/3，**4 和 5 必须手动改**。
 
 ```yaml
 spring:
-    profiles:
-        active: @activatedProperties@    # 交给构建期替换，或用部署时的 --spring.profiles.active 覆盖
+  profiles:
+    active: @activatedProperties@  # 交给构建期替换，或用部署时的 --spring.profiles.active 覆盖
 ```
 
 常见做法：
