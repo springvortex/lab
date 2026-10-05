@@ -79,18 +79,18 @@ public class WebConfig implements WebMvcConfigurer {
      * <p>
      * 模板默认不注册任何拦截器，保持零业务耦合。业务需要时在此追加即可，例如：
      *
-     * <pre>{@code
-     * @Resource
+     * <pre>
+     * &#64;Resource
      * private AuthInterceptor authInterceptor;
      *
-     * @Override
+     * &#64;Override
      * public void addInterceptors(InterceptorRegistry registry) {
      *     registry.addInterceptor(authInterceptor)
      *             .addPathPatterns("/api/**")
      *             .excludePathPatterns("/api/auth/login")
      *             .order(1);   // order 越小越先执行
      * }
-     * }</pre>
+     * </pre>
      *
      * <p>
      * 注意拦截器不要重复做已经在 {@code WebLogAspect} / {@code TraceIdFilter}

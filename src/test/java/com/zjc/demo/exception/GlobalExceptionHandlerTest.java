@@ -2,35 +2,33 @@ package com.zjc.demo.exception;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.List;
+import java.util.Collections;
 import java.util.Set;
+
+import javax.validation.ConstraintViolation;
+import javax.validation.ConstraintViolationException;
+import javax.validation.Validation;
+import javax.validation.Validator;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
-import org.springframework.web.ErrorResponseException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.servlet.NoHandlerFoundException;
 
 import com.zjc.demo.constant.ApiResponseConstant;
 import com.zjc.demo.support.TestRequest;
 import com.zjc.demo.web.ApiResponse;
-
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.ConstraintViolationException;
-import jakarta.validation.Validation;
-import jakarta.validation.Validator;
 
 /**
  * {@link GlobalExceptionHandler} 的单元测试。
@@ -152,7 +150,7 @@ class GlobalExceptionHandlerTest {
     @DisplayName("Content-Type 不支持：返回 415")
     void mediaTypeNotSupportedReturns415() {
         HttpMediaTypeNotSupportedException e =
-                new HttpMediaTypeNotSupportedException(MediaType.TEXT_PLAIN, List.of());
+                new HttpMediaTypeNotSupportedException(MediaType.TEXT_PLAIN, Collections.<MediaType>emptyList());
 
         ResponseEntity<ApiResponse<Void>> response = handler.handleMediaTypeNotSupported(e);
 
@@ -176,11 +174,28 @@ class GlobalExceptionHandlerTest {
     }
 
     /**
+     * 构造 Boot 2 下的「找不到 Handler」异常，统一收口构造签名差异。
+     *
+     * <p>
+     * Spring 5 用 {@link NoHandlerFoundException}，Spring 6 起换成
+     * {@code org.springframework.web.servlet.resource.NoResourceFoundException}，
+     * 且构造器签名也不同（前者是 {@code (httpMethod, requestURL, headers)}，
+     * 后者是 {@code (HttpMethod, resourcePath)}）。收口到这里后，
+     * 后续再跨版本升级只需改这一个方法。
+     *
+     * @param requestUrl 请求路径，可为 {@code null}
+     * @return 用于测试的异常实例
+     */
+    private static NoHandlerFoundException noHandlerFound(String requestUrl) {
+        return new NoHandlerFoundException("GET", requestUrl, new HttpHeaders());
+    }
+
+    /**
      * 静态资源 404 的忽略名单与日志开关。
      */
     @Nested
     @DisplayName("静态资源 404")
-    class NoResourceFound {
+    class NotFound {
 
         /**
          * 命中忽略名单的路径不记日志，但状态码仍是 404（只影响日志噪声，不影响响应）。
@@ -191,9 +206,7 @@ class GlobalExceptionHandlerTest {
             for (String path : new String[]{
                     "favicon.ico", "apple-touch-icon.png", "apple-touch-icon-precomposed.png"
             }) {
-                // Spring 6 的构造器只有 (HttpMethod, resourcePath) 两个参数
-                ResponseEntity<ApiResponse<Void>> response = handler.handleNoResourceFound(
-                        new NoResourceFoundException(HttpMethod.GET, path));
+                ResponseEntity<ApiResponse<Void>> response = handler.handleNoHandlerFound(noHandlerFound(path));
                 assertThat(response.getStatusCode()).as("路径 %s", path).isEqualTo(HttpStatus.NOT_FOUND);
             }
         }
@@ -204,8 +217,7 @@ class GlobalExceptionHandlerTest {
         @Test
         @DisplayName("忽略名单：前导斜杠会被归一化")
         void leadingSlashIsNormalized() {
-            ResponseEntity<ApiResponse<Void>> response = handler.handleNoResourceFound(
-                    new NoResourceFoundException(HttpMethod.GET, "/favicon.ico"));
+            ResponseEntity<ApiResponse<Void>> response = handler.handleNoHandlerFound(noHandlerFound("/favicon.ico"));
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         }
@@ -216,8 +228,7 @@ class GlobalExceptionHandlerTest {
         @Test
         @DisplayName("非忽略路径：照常告警并返回 404")
         void otherPathsAreLogged() {
-            ResponseEntity<ApiResponse<Void>> response = handler.handleNoResourceFound(
-                    new NoResourceFoundException(HttpMethod.GET, "nope"));
+            ResponseEntity<ApiResponse<Void>> response = handler.handleNoHandlerFound(noHandlerFound("nope"));
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         }
@@ -228,25 +239,25 @@ class GlobalExceptionHandlerTest {
         @Test
         @DisplayName("资源路径为 null：不抛 NPE")
         void nullResourcePathIsSafe() {
-            ResponseEntity<ApiResponse<Void>> response = handler.handleNoResourceFound(
-                    new NoResourceFoundException(HttpMethod.GET, null));
+            ResponseEntity<ApiResponse<Void>> response = handler.handleNoHandlerFound(noHandlerFound(null));
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         }
     }
 
     /**
-     * 框架自带状态码的异常（{@code ResponseStatusException} 及其父类
-     * {@link ErrorResponseException}）必须按自身状态码透出，而不是被兜底改写成 500。
+     * 框架自带状态码的异常（{@link ResponseStatusException}）必须按自身状态码透出，
+     * 而不是被兜底改写成 500。
      *
      * <p>
-     * Spring 6 起 {@code ResponseStatusException} 继承自 {@code ErrorResponseException}，
-     * 因此本组断言同时适用于两者。端到端行为（真实 HTTP 请求是否命中本处理器）
+     * Spring 5（Boot 2）里 {@code ResponseStatusException} 直接继承 {@code NestedRuntimeException}，
+     * 不像 Spring 6 那样还有 {@code ErrorResponseException} 父类，所以它本身就是最顶层的
+     * 「带状态码的框架异常」。端到端行为（真实 HTTP 请求是否命中本处理器）
      * 由 {@code ApiIntegrationTest} 中访问 {@code /test/status-*} 的用例验证。
      */
     @Nested
     @DisplayName("框架异常：状态码如实透出")
-    class ErrorResponse {
+    class ResponseStatus {
 
         /**
          * 4xx 且带原因：状态码与原因都透给调用方，帮助联调。
@@ -254,7 +265,7 @@ class GlobalExceptionHandlerTest {
         @Test
         @DisplayName("4xx 带原因：状态码与原因都透出")
         void clientErrorKeepsStatusAndDetail() {
-            ResponseEntity<ApiResponse<Void>> response = handler.handleErrorResponse(
+            ResponseEntity<ApiResponse<Void>> response = handler.handleResponseStatus(
                     new ResponseStatusException(HttpStatus.CONFLICT, "订单状态冲突"));
 
             assertStatus(response, HttpStatus.CONFLICT);
@@ -267,8 +278,8 @@ class GlobalExceptionHandlerTest {
         @Test
         @DisplayName("4xx 无原因：消息回退到状态码短语")
         void clientErrorWithoutDetailFallsBackToReasonPhrase() {
-            ResponseEntity<ApiResponse<Void>> response = handler.handleErrorResponse(
-                    new ResponseStatusException(HttpStatus.NOT_FOUND));
+            ResponseEntity<ApiResponse<Void>> response =
+                    handler.handleResponseStatus(new ResponseStatusException(HttpStatus.NOT_FOUND));
 
             assertStatus(response, HttpStatus.NOT_FOUND);
             assertThat(response.getBody().getMessage()).isEqualTo("Not Found");
@@ -280,7 +291,7 @@ class GlobalExceptionHandlerTest {
         @Test
         @DisplayName("5xx：隐藏内部细节")
         void serverErrorHidesDetails() {
-            ResponseEntity<ApiResponse<Void>> response = handler.handleErrorResponse(
+            ResponseEntity<ApiResponse<Void>> response = handler.handleResponseStatus(
                     new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "模拟内部细节，不应出现"));
 
             assertStatus(response, HttpStatus.INTERNAL_SERVER_ERROR);
@@ -293,8 +304,9 @@ class GlobalExceptionHandlerTest {
         @Test
         @DisplayName("非标准状态码：兜底为 500 且不抛异常")
         void unresolvableStatusFallsBackTo500() {
-            ResponseEntity<ApiResponse<Void>> response = handler.handleErrorResponse(
-                    new ResponseStatusException(HttpStatusCode.valueOf(599)));
+            // Spring 5 提供 (int, String, Throwable) 构造器，允许塞进 HttpStatus 枚举之外的状态码
+            ResponseEntity<ApiResponse<Void>> response =
+                    handler.handleResponseStatus(new ResponseStatusException(599, null, null));
 
             assertStatus(response, HttpStatus.INTERNAL_SERVER_ERROR);
         }

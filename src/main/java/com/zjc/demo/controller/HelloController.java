@@ -1,12 +1,12 @@
 package com.zjc.demo.controller;
 
+import javax.annotation.Resource;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.zjc.demo.service.HelloService;
 import com.zjc.demo.web.ApiResponse;
-
-import jakarta.annotation.Resource;
 
 /**
  * 示例接口，演示 Controller 层的标准写法；派生新项目时可直接删除。

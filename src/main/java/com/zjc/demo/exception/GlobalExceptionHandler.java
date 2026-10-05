@@ -2,12 +2,13 @@ package com.zjc.demo.exception;
 
 import java.util.stream.Collectors;
 
+import javax.validation.ConstraintViolationException;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
-import org.springframework.web.ErrorResponseException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -16,14 +17,12 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
-import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.web.servlet.resource.NoResourceFoundException;
+import org.springframework.web.servlet.NoHandlerFoundException;
 
 import com.zjc.demo.constant.ApiResponseConstant;
 import com.zjc.demo.web.ApiResponse;
 
-import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -71,8 +70,7 @@ public class GlobalExceptionHandler {
      * 若把它们一并记为 WARN，日志里会堆出大量无意义的「请求路径不存在」，掩盖真正的错误请求。
      *
      * <p>
-     * 匹配的是 {@code NoResourceFoundException} 的 {@code resourcePath}，即<b>不含前导斜杠</b>
-     * 的资源路径（如 {@code favicon.ico}）。新增条目时请保持同样的书写方式，
+     * 匹配的是请求路径（如 {@code /favicon.ico}）。新增条目时请保持同样的书写方式，
      * 带不带前导斜杠都会被 {@link #isIgnoredResource(String)} 归一化处理。
      */
     private static final String[] IGNORED_RESOURCE_PATHS = {
@@ -155,11 +153,17 @@ public class GlobalExceptionHandler {
      * {@code @Validated} 标注的类经 AOP 代理后，方法参数校验失败抛出的异常。
      *
      * <p>
-     * <b>注意适用范围：</b>Spring 6.1 起，Controller 方法参数上直接挂约束注解
-     * （{@code @RequestParam} / {@code @PathVariable} 等）抛的是
-     * {@link HandlerMethodValidationException}，由
-     * {@link #handleMethodValidation(HandlerMethodValidationException)} 处理；
-     * 本方法处理的是 {@code @Validated} + AOP 代理场景（常见于 Service 层方法入参校验）。
+     * <b>Boot 2 下的适用范围：</b>{@code @Validated} + AOP 代理场景，涵盖两种情况：
+     * Controller 类上加 {@code @Validated} 后方法参数上的约束注解（{@code @RequestParam} /
+     * {@code @PathVariable} 等），以及 Service 层方法入参校验。两条路径都抛本异常，由本方法统一处理。
+     *
+     * <p>
+     * <b>与 Boot 3 的差异：</b>Spring 6.1 起上述场景改抛
+     * {@code HandlerMethodValidationException}；Spring 5（Boot 2）没有该类型，
+     * 约束校验失败一律走 {@code ConstraintViolationException}。
+     * 因此<b>升级到 Boot 3 时必须补一个 {@code HandlerMethodValidationException} 处理器</b>，
+     * 否则这类「客户端传参不合法」会落到兜底 {@code Exception} 分支，
+     * 被当成服务端故障报成 <b>500 并打一整条 ERROR 堆栈</b>。
      *
      * @param e 约束违反异常
      * @return 400 响应，提示具体违反的约束
@@ -168,35 +172,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleConstraintViolation(ConstraintViolationException e) {
         String message = e.getConstraintViolations().stream()
                 .map(v -> v.getPropertyPath() + ": " + v.getMessage())
-                .collect(Collectors.joining(ERROR_DELIMITER));
-        log.warn("方法参数校验失败: {}", message);
-        return ApiResponse.<Void>failure(ApiResponseConstant.PARAM_INVALID.code(), message).toResponseEntity();
-    }
-
-    /**
-     * Controller 方法参数上的约束注解校验失败（Spring 6.1+ 的默认行为）。
-     *
-     * <p>
-     * 在 {@code @RequestParam} / {@code @PathVariable} / {@code @RequestHeader}
-     * 上直接挂 {@code @NotBlank}、{@code @Min} 这类约束时，Spring 6.1 起抛的是本异常，
-     * <b>不再是</b> {@link ConstraintViolationException}。若只处理后者，这类「客户端传参不合法」
-     * 会一路落到兜底的 {@code Exception} 分支，被当成服务端故障报成 <b>500 并打一整条 ERROR
-     * 堆栈</b>——既误导排查方向，又容易被监控当成线上故障误告警。
-     *
-     * <p>
-     * 与 {@link #handleConstraintViolation(ConstraintViolationException)} 的输出格式保持一致，
-     * 均为 {@code 参数名: 原因} 的多条拼接。交叉参数（cross-parameter）约束的提示未纳入，
-     * 实际业务中极少使用。
-     *
-     * @param e 方法参数校验异常
-     * @return 400 响应，提示具体不通过的参数与原因
-     */
-    @ExceptionHandler(HandlerMethodValidationException.class)
-    public ResponseEntity<ApiResponse<Void>> handleMethodValidation(HandlerMethodValidationException e) {
-        String message = e.getParameterValidationResults().stream()
-                .flatMap(result -> result.getResolvableErrors().stream()
-                        .map(error -> result.getMethodParameter().getParameterName() + ": "
-                                + error.getDefaultMessage()))
                 .collect(Collectors.joining(ERROR_DELIMITER));
         log.warn("方法参数校验失败: {}", message);
         return ApiResponse.<Void>failure(ApiResponseConstant.PARAM_INVALID.code(), message).toResponseEntity();
@@ -262,17 +237,23 @@ public class GlobalExceptionHandler {
      * 命中 {@link #IGNORED_RESOURCE_PATHS} 的请求（如浏览器自动请求的 favicon）不记录日志，
      * 其余路径记 WARN 便于排查错误链接；两种情况都返回 404，不改变响应结果。
      *
-     * @param e 资源未找到异常
+     * <p>
+     * <b>Boot 2 的开关依赖：</b>本处理器要生效，必须在
+     * {@code config/application-pub.yaml} 里配 {@code spring.mvc.throw-exception-if-no-handler-found=true}
+     * ——不配的话 404 由容器的 {@code /error} 端点接管，返回的是 Boot 默认错误页，
+     * **不会**经过这里，响应体也就不是统一的 {@code ApiResponse} 结构。
+     *
+     * @param e 找不到处理器异常
      * @return 404 响应
      */
-    @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<ApiResponse<Void>> handleNoResourceFound(NoResourceFoundException e) {
-        String resourcePath = e.getResourcePath();
-        if (isIgnoredResource(resourcePath)) {
+    @ExceptionHandler(NoHandlerFoundException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoHandlerFound(NoHandlerFoundException e) {
+        String requestUrl = e.getRequestURL();
+        if (isIgnoredResource(requestUrl)) {
             // 浏览器自动请求，属于正常行为，不记录日志
             return ApiResponse.<Void>failure(ApiResponseConstant.NOT_FOUND).toResponseEntity();
         }
-        log.warn("请求路径不存在: {}", resourcePath);
+        log.warn("请求路径不存在: {}", requestUrl);
         return ApiResponse.<Void>failure(ApiResponseConstant.NOT_FOUND).toResponseEntity();
     }
 
@@ -305,38 +286,43 @@ public class GlobalExceptionHandler {
      * 框架抛出的「自带状态码」异常，按异常状态码如实返回，而不是降级成 500。
      *
      * <p>
-     * Spring 6 起框架层大量使用 {@link ErrorResponseException} 及其子类
-     * {@link ResponseStatusException} 表达 4xx / 5xx，例如 API 版本管理抛出的
-     * {@code MissingApiVersionException}（没带版本）与
-     * {@code InvalidApiVersionException}（版本不在 supported 清单里），
-     * 它们自带 400。
+     * Spring 框架层用 {@link ResponseStatusException} 表达自带状态码的 4xx / 5xx，
+     * 业务代码也常用它抛「订单状态冲突」这类带状态码的业务失败。它自带状态码，
+     * 应该如实透出而不是被降级成 500。
      *
      * <p>
      * <b>不处理会出现什么：</b>这些异常会掉进下面的兜底 {@code Exception} 分支，
      * 被统一改写成 <b>500 + ERROR 堆栈</b>——状态码语义丢失，调用方、网关与 APM
-     * 都会把它误判成服务端故障，而实际原因只是「请求少了个版本头」。
+     * 都会把它误判成服务端故障，而实际原因只是「请求不符合业务前置条件」。
      * 本方法按异常自带的状态码返回，4xx 用 WARN 记录（属于调用方问题），
      * 5xx 仍按 ERROR 记录并隐藏细节。
      *
      * <p>
-     * 注意本方法<b>不会</b>抢走更具体处理器的活：{@code NoResourceFoundException}、
+     * <b>构造方式决定了状态码是否合法：</b>{@code ResponseStatusException} 有
+     * {@code HttpStatus} 与 {@code int} 两种构造器，后者允许传入非标准状态码，
+     * 因此这里仍做一次兜底，避免非法值把请求打挂。
+     *
+     * <p>
+     * 注意本方法<b>不会</b>抢走更具体处理器的活：{@code NoHandlerFoundException}、
      * {@code HttpRequestMethodNotSupportedException} 等都有各自的
      * {@code @ExceptionHandler}，Spring 优先选最具体的匹配。
      *
      * @param e 带状态码的框架异常
      * @return 与异常状态码一致的响应
      */
-    @ExceptionHandler(ErrorResponseException.class)
-    public ResponseEntity<ApiResponse<Void>> handleErrorResponse(ErrorResponseException e) {
-        HttpStatus status = HttpStatus.resolve(e.getStatusCode().value());
-        HttpStatus resolved = status == null ? HttpStatus.INTERNAL_SERVER_ERROR : status;
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ApiResponse<Void>> handleResponseStatus(ResponseStatusException e) {
+        HttpStatus resolved = HttpStatus.resolve(e.getRawStatusCode());
+        if (resolved == null) {
+            resolved = HttpStatus.INTERNAL_SERVER_ERROR;
+        }
         if (resolved.is5xxServerError()) {
             log.error("框架异常(状态码 {}): {}", resolved.value(), e.getMessage(), e);
             return ApiResponse.<Void>failure(ApiResponseConstant.INTERNAL_ERROR).toResponseEntity();
         }
-        // 4xx 属于调用方用法问题，把框架给出的具体原因透出去更有助于联调（不含内部实现细节）
-        String detail = e.getBody().getDetail();
-        String message = detail == null ? resolved.getReasonPhrase() : detail;
+        // 4xx 属于调用方用法问题，把异常给出的具体原因透出去更有助于联调（不含内部实现细节）
+        String reason = e.getReason();
+        String message = reason == null ? resolved.getReasonPhrase() : reason;
         log.warn("框架异常(状态码 {}): {}", resolved.value(), message);
         return ApiResponse.<Void>failure(resolved.value(), message).toResponseEntity();
     }

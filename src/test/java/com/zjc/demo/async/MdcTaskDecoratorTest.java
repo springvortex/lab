@@ -83,7 +83,7 @@ class MdcTaskDecoratorTest {
     }
 
     /**
-     * 任务结束后必须清理 MDC：虚拟线程与线程池都会复用线程，残留会串到下一个任务。
+     * 任务结束后必须清理 MDC：线程是被池化复用的，残留会串到下一个任务。
      */
     @Test
     @DisplayName("任务结束后清理 MDC")

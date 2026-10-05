@@ -3,6 +3,11 @@ package com.zjc.demo.filter;
 import java.io.IOException;
 import java.util.UUID;
 
+import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
 import org.slf4j.MDC;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -12,10 +17,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.zjc.demo.constant.TraceConstant;
 
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -61,7 +62,7 @@ public class TraceIdFilter extends OncePerRequestFilter {
         try {
             filterChain.doFilter(request, response);
         } finally {
-            // 虚拟线程 / 线程池复用下必须清理，否则会串到其他请求
+            // 线程池会复用线程，必须清理，否则会串到其他请求
             MDC.remove(TraceConstant.MDC_KEY);
         }
     }

@@ -12,13 +12,14 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import com.zjc.demo.constant.TraceConstant;
+import com.zjc.demo.support.TestStrings;
 
 /**
  * {@link TraceIdFilter} 的单元测试。
  *
  * <p>
  * 覆盖三件事：traceId 的沿用与生成规则、写入 MDC 与响应头的时机、以及请求结束后必须清理 MDC
- * （虚拟线程与线程池复用下，不清理会把上一个请求的 traceId 串到下一个请求）。
+ * （线程是被池化复用的，不清理会把上一个请求的 traceId 串到下一个请求）。
  *
  * @author jiancai.zhong
  */
@@ -137,11 +138,11 @@ class TraceIdFilterTest {
     @DisplayName("超长 traceId：截断到 64 位")
     void overlongTraceIdIsTruncated() throws Exception {
         AtomicReference<String> inChain = new AtomicReference<>();
-        String tooLong = "a".repeat(100);
+        String tooLong = TestStrings.repeat("a", 100);
 
         String traceId = runFilter(requestWithTraceHeader(tooLong), inChain);
 
-        assertThat(traceId).hasSize(TraceConstant.MAX_LENGTH).isEqualTo("a".repeat(64));
+        assertThat(traceId).hasSize(TraceConstant.MAX_LENGTH).isEqualTo(TestStrings.repeat("a", 64));
     }
 
     /**
@@ -153,7 +154,7 @@ class TraceIdFilterTest {
     @DisplayName("边界值：长度 64 不截断")
     void exactlyMaxLengthIsKept() throws Exception {
         AtomicReference<String> inChain = new AtomicReference<>();
-        String boundary = "b".repeat(TraceConstant.MAX_LENGTH);
+        String boundary = TestStrings.repeat("b", TraceConstant.MAX_LENGTH);
 
         assertThat(runFilter(requestWithTraceHeader(boundary), inChain)).isEqualTo(boundary);
     }

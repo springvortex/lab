@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.16</version>
+        <version>2.7.18</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
@@ -16,7 +16,7 @@
     <version>0.0.1</version>
 
     <name>SpringVortexDemo</name>
-    <description>Spring Boot 3 脚手架模板</description>
+    <description>Spring Boot 2 脚手架模板</description>
 
     <!-- 模板被复制到新项目后，记得把 <name> / <description> / 这里的版权年份与持有人一起改掉 -->
     <licenses>
@@ -28,17 +28,17 @@
     </licenses>
 
     <properties>
-        <java.version>21</java.version>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
+        <java.version>8</java.version>
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <!-- JaCoCo 版本需支持 Java 21 字节码（class file 65），升级 JDK 时需同步检查 -->
+        <!-- JaCoCo 版本需支持被测字节码版本：Java 8 = class file 52，0.8.x 均已覆盖 -->
         <jacoco.version>0.8.15</jacoco.version>
         <!-- 覆盖率门禁阈值（0.00~1.00）：派生项目新增代码后可下调 -->
         <jacoco.minimum-coverage>0.80</jacoco.minimum-coverage>
-        <!-- 接口文档：springdoc 大版本需与 Spring Boot 对齐（2.x→Boot 3，3.x→Boot 4） -->
-        <springdoc.version>2.8.9</springdoc.version>
+        <!-- 接口文档：springdoc 大版本需与 Spring Boot 对齐（1.x→Boot 2，2.x→Boot 3，3.x→Boot 4） -->
+        <springdoc.version>1.7.0</springdoc.version>
     </properties>
 
     <dependencies>
@@ -91,7 +91,7 @@
         <!-- 接口文档：OpenAPI 3 描述 + Swagger UI，需显式锁版本（不跟随 Boot 依赖管理） -->
         <dependency>
             <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <artifactId>springdoc-openapi-ui</artifactId>
             <version>${springdoc.version}</version>
         </dependency>
     </dependencies>
@@ -160,6 +160,9 @@
             </plugin>
 
             <!-- 编译插件：Lombok 与配置处理器需显式声明注解处理器路径 -->
+            <!-- 注意：annotationProcessorPaths 不走 dependencyManagement 的版本继承，
+                 必须显式写 <version>，否则报 "The version cannot be empty"。
+                 父 pom 已提供 lombok.version，Boot 自身版本取 ${project.parent.version}。 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -175,12 +178,14 @@
                                 <path>
                                     <groupId>org.projectlombok</groupId>
                                     <artifactId>lombok</artifactId>
+                                    <version>${lombok.version}</version>
                                 </path>
                                 <path>
                                     <groupId>org.springframework.boot</groupId>
                                     <artifactId>
                                         spring-boot-configuration-processor
                                     </artifactId>
+                                    <version>${project.parent.version}</version>
                                 </path>
                             </annotationProcessorPaths>
                         </configuration>
@@ -196,6 +201,7 @@
                                 <path>
                                     <groupId>org.projectlombok</groupId>
                                     <artifactId>lombok</artifactId>
+                                    <version>${lombok.version}</version>
                                 </path>
                             </annotationProcessorPaths>
                         </configuration>

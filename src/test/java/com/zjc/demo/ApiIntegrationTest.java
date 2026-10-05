@@ -19,8 +19,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -28,7 +29,7 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.test.web.client.match.MockRestRequestMatchers;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestTemplate;
 
 import com.jayway.jsonpath.JsonPath;
 import com.zjc.demo.constant.ApiResponseConstant;
@@ -41,9 +42,9 @@ import com.zjc.demo.constant.TraceConstant;
  * <b>为什么必须有这一层：</b>单元测试只能证明「处理器拿到异常后返回什么」，证明不了
  * 「异常会不会被路由到这个处理器」。而本项目所有关键约定——{@code code} 即 HTTP 状态码、
  * 响应体统一结构、traceId 自动填充——只有在 DispatcherServlet 参与时才真正成立。
- * 示例：Spring 6.1 起 {@code @RequestParam} 上的约束注解抛的是
- * {@code HandlerMethodValidationException}，它<b>不会</b>进入本项目的任何
- * {@code @ExceptionHandler}，只有真实请求才能暴露这一点。
+ * 示例：Spring 6.1 起 {@code @RequestParam} 上的约束注解无需 {@code @Validated} 也会生效，
+ * 且抛的是 {@code HandlerMethodValidationException} 而不是 {@code ConstraintViolationException}，
+ * 这种版本差异只有在真实请求链路上才暴露得出来。
  *
  * @author jiancai.zhong
  */
@@ -63,10 +64,10 @@ class ApiIntegrationTest {
     private MockMvc mockMvc;
 
     /**
-     * Boot 自动配置的 {@code RestClient.Builder}（原型作用域），用于验证出站链路透传。
+     * Boot 自动配置的 {@code RestTemplateBuilder}（原型作用域），用于验证出站链路透传。
      */
     @Autowired
-    private RestClient.Builder restClientBuilder;
+    private RestTemplateBuilder restTemplateBuilder;
 
     /**
      * 从响应体中读取指定 JSON 字段。
@@ -154,14 +155,23 @@ class ApiIntegrationTest {
         }
 
         /**
-         * 静态资源 favicon 被正常提供，不会产生 404 告警。
+         * 浏览器自动请求的 favicon 命中忽略名单：返回统一结构的 404，但不产生 WARN 日志。
+         *
+         * <p>
+         * 本模板关闭了静态资源映射（见 {@code application-pub.yaml} 的
+         * {@code spring.web.resources.add-mappings}），因此 favicon 会落到
+         * {@code NoHandlerFoundException} 分支。这正是 {@code GlobalExceptionHandler}
+         * 里忽略名单存在的意义：把「浏览器一定会请求、服务端一定没有」的资源从告警里抹掉。
          *
          * @throws Exception MVC 调用失败
          */
         @Test
-        @DisplayName("GET /favicon.ico：静态资源正常返回")
-        void faviconIsServed() throws Exception {
-            mockMvc.perform(get("/favicon.ico")).andExpect(status().isOk());
+        @DisplayName("GET /favicon.ico：404 且不告警")
+        void faviconReturns404WithoutWarning() throws Exception {
+            mockMvc.perform(get("/favicon.ico"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value(404))
+                    .andExpect(jsonPath("$.success").value(false));
         }
     }
 
@@ -446,10 +456,10 @@ class ApiIntegrationTest {
     }
 
     /**
-     * 出站链路透传：验证 {@code RestClientCustomizer} 真的把拦截器挂到了 Boot 自动配置的 builder 上。
+     * 出站链路透传：验证 {@code RestTemplateCustomizer} 真的把拦截器挂到了 Boot 自动配置的 builder 上。
      *
      * <p>
-     * 用 {@code MockRestServiceServer} 绑定真实 builder 并断言请求头，而不是只断言
+     * 用 {@code MockRestServiceServer} 接住真实请求并断言请求头，而不是只断言
      * 「customizer Bean 存在」——后者证明不了拦截器真的被执行。
      */
     @Nested
@@ -460,12 +470,15 @@ class ApiIntegrationTest {
          * Boot 自动配置的 builder 发出的请求必须携带当前 MDC 里的 traceId。
          */
         @Test
-        @DisplayName("RestClient 出站请求自动带上 X-Trace-Id")
-        void restClientPropagatesTraceId() {
+        @DisplayName("RestTemplate 出站请求自动带上 X-Trace-Id")
+        void restTemplatePropagatesTraceId() {
             MDC.put(TraceConstant.MDC_KEY, "4f3c2b1a7e9d4c2b8f6a1d0e5c3b7a92");
             try {
-                MockRestServiceServer server = MockRestServiceServer.bindTo(restClientBuilder).build();
-                RestClient client = restClientBuilder.baseUrl("http://downstream-service").build();
+                // 用 Boot 自动配置的 builder 构建：定制器（链路拦截器 + 超时）已在这一步被应用
+                RestTemplate restTemplate = restTemplateBuilder.rootUri("http://downstream-service").build();
+                // createServer 会把 mock 请求工厂塞进已构建好的实例，
+                // 必须在 build() 之后调用——否则会被 RestTemplateConfig 里的定制器覆盖掉
+                MockRestServiceServer server = MockRestServiceServer.createServer(restTemplate);
 
                 server.expect(requestTo("http://downstream-service/api/users"))
                         .andExpect(method(HttpMethod.GET))
@@ -474,7 +487,7 @@ class ApiIntegrationTest {
                                 "4f3c2b1a7e9d4c2b8f6a1d0e5c3b7a92"))
                         .andRespond(withSuccess());
 
-                client.get().uri("/api/users").retrieve().toBodilessEntity();
+                restTemplate.getForEntity("/api/users", Void.class);
                 server.verify();
             } finally {
                 MDC.clear();
@@ -550,19 +563,92 @@ class ApiIntegrationTest {
     }
 
     /**
-     * Spring 6.1+ 的方法参数校验走向。
+     * 框架自带状态码的异常必须真的被路由到 {@code handleResponseStatus}，而不是掉进兜底分支。
      *
      * <p>
-     * {@code @RequestParam} 上直接挂约束注解时抛的是 {@code HandlerMethodValidationException}，
-     * 而<b>不是</b> {@code ConstraintViolationException}。本用例是这条链路唯一的守卫：
-     * 少处理这一个异常，客户端传错参数就会得到 500 + ERROR 堆栈，而不是 400。
+     * 这是「单元测试证明不了」的典型：凭 {@code RestControllerAdvice} 的匹配规则，
+     * 直觉上下面的请求会走最具体的 {@code ExceptionHandler}，但实际只构建出来的异常类型才知道。
+     * 少了 {@code ResponseStatusException} 这一条，这三个请求会全部变成 500。
      */
     @Nested
-    @DisplayName("方法参数校验（Spring 6.1+ 行为）")
+    @DisplayName("框架异常：端到端状态码透出")
+    class FrameworkExceptions {
+
+        /**
+         * 4xx 带原因：状态码与原因都透出。
+         *
+         * @throws Exception MVC 调用失败
+         */
+        @Test
+        @DisplayName("409：状态码与原因都透出")
+        void statusConflictKeeps409() throws Exception {
+            mockMvc.perform(get("/test/status-conflict"))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.code").value(409))
+                    .andExpect(jsonPath("$.message").value("订单状态冲突"))
+                    .andExpect(jsonPath("$.success").value(false));
+        }
+
+        /**
+         * 4xx 无原因：消息回退到状态码短语，不能是 null 或空串。
+         *
+         * @throws Exception MVC 调用失败
+         */
+        @Test
+        @DisplayName("404 无原因：消息回退到 Not Found")
+        void statusNoReasonFallsBackToPhrase() throws Exception {
+            mockMvc.perform(get("/test/status-no-reason"))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value(404))
+                    .andExpect(jsonPath("$.message").value("Not Found"));
+        }
+
+        /**
+         * 5xx：状态码仍是 500，但内部细节必须隐藏。
+         *
+         * @throws Exception MVC 调用失败
+         */
+        @Test
+        @DisplayName("500：隐藏内部细节")
+        void statusServerErrorHidesDetails() throws Exception {
+            MvcResult result = mockMvc.perform(get("/test/status-server-error"))
+                    .andExpect(status().isInternalServerError())
+                    .andExpect(jsonPath("$.code").value(500))
+                    .andExpect(jsonPath("$.message").value(ApiResponseConstant.INTERNAL_ERROR.message()))
+                    .andReturn();
+
+            assertThat(result.getResponse().getContentAsString(StandardCharsets.UTF_8))
+                    .doesNotContain("模拟内部细节");
+        }
+    }
+
+    /**
+     * Spring 5 的方法参数校验走向。
+     *
+     * <p>
+     * Spring 5（Boot 2）不会自动校验 Controller 方法参数，必须在类上加
+     * {@code @Validated}，由 {@code MethodValidationPostProcessor} 生成代理后才会生效，
+     * 校验失败抛 {@code ConstraintViolationException}。
+     *
+     * <p>
+     * <b>与 Boot 3 的差异：</b>Spring 6.1 起无需 {@code @Validated}，且改抛
+     * {@code HandlerMethodValidationException}；那时候还得再加一个异常处理器，
+     * 否则「客户端传错参数」会落到兜底分支变成 500。
+     *
+     * <p>
+     * 本组用例是这条链路唯一的守卫：少处理这一个异常，客户端传错参数就会得到
+     * 500 + ERROR 堆栈，而不是 400。
+     */
+    @Nested
+    @DisplayName("方法参数校验（Spring 5 行为）")
     class MethodParameterValidation {
 
         /**
          * 参数上直接挂约束注解时，必须返回统一结构的 400，而不是 500。
+         *
+         * <p>
+         * 提示格式为 {@code 方法名.参数名: 约束消息}——Spring 5 走的是方法级校验，
+         * {@code propertyPath} 会带出方法名（Boot 3 只有参数名），这是两个版本可观察的差异之一。
          *
          * @throws Exception MVC 调用失败
          */
@@ -572,7 +658,7 @@ class ApiIntegrationTest {
             mockMvc.perform(get("/test/validated-param").param("name", " "))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value(400))
-                    .andExpect(jsonPath("$.message").value("name: 名称不能为空"))
+                    .andExpect(jsonPath("$.message").value("validatedParam.name: 名称不能为空"))
                     .andExpect(jsonPath("$.success").value(false));
         }
     }

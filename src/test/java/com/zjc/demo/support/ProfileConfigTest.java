@@ -66,8 +66,15 @@ class ProfileConfigTest {
      * 三类超时必须真的绑定到值：配了但不生效，比不配更危险（看起来已经防护了）。
      *
      * <p>
-     * 这里同时起到「属性名拼写校验」的作用——Boot 3 的出站超时是单数
-     * {@code spring.http.client.*}（Boot 4 起才改成复数），写错不会报错也不会生效。
+     * 这里同时起到「属性名拼写校验」的作用——三个超时项分属不同的命名空间，且各 Boot 版本
+     * 叫法不一致，写错不会报错也不会生效：
+     * <ul>
+     * <li>Tomcat 连接/长连接：{@code server.tomcat.*}；</li>
+     * <li>异步请求：{@code spring.mvc.async.request-timeout}；</li>
+     * <li>出站客户端：Boot 3 才有 {@code spring.http.client.*}（Boot 4 起改复数
+     * {@code spring.http.clients.*}），<b>Boot 2 没有这个前缀</b>，因此本模板改用自定义键
+     * {@code app.http.client.*}，由 {@code RestTemplateConfig} 读取。</li>
+     * </ul>
      */
     @Test
     @DisplayName("超时配置：Tomcat / 异步请求 / 出站客户端均已绑定")
@@ -76,8 +83,41 @@ class ProfileConfigTest {
             assertThat(env.getProperty("server.tomcat.connection-timeout")).isEqualTo("20s");
             assertThat(env.getProperty("server.tomcat.keep-alive-timeout")).isEqualTo("20s");
             assertThat(env.getProperty("spring.mvc.async.request-timeout")).isEqualTo("30s");
-            assertThat(env.getProperty("spring.http.client.connect-timeout")).isEqualTo("3s");
-            assertThat(env.getProperty("spring.http.client.read-timeout")).isEqualTo("10s");
+            assertThat(env.getProperty("app.http.client.connect-timeout")).isEqualTo("3000");
+            assertThat(env.getProperty("app.http.client.read-timeout")).isEqualTo("10000");
+        });
+    }
+
+    /**
+     * profile 的装配顺序决定了覆盖关系，必须把它钉住。
+     *
+     * <p>
+     * 规则是「{@code include} 的横切项按声明顺序在前，{@code active} 的环境项排在最后」，
+     * 而 Spring 的取值优先级是<b>后者覆盖前者</b>，因此 environment profile 天然拥有最高优先级。
+     * 一旦有人调整 {@code application.yaml} 里 {@code include} 的顺序或删掉某项，
+     * 这条断言会先红，避免发生「覆盖静默反向」这类只在生产暴露的问题。
+     */
+    @Test
+    @DisplayName("profile 顺序：include 项在前，active 项在最后（后者优先）")
+    void profileOrderIsStable() {
+        withProfile("prod", env -> assertThat(env.getActiveProfiles()).containsExactly("pub", "cors", "prod"));
+    }
+
+    /**
+     * 404 统一治理的两个开关必须同时打开，否则 {@code NoHandlerFoundException} 不会抛出，
+     * 未匹配路径会绕过 {@code GlobalExceptionHandler} 返回 Boot 默认错误页。
+     *
+     * <p>
+     * 这是 Boot 2 特有的「配置组合生效」陷阱：只配
+     * {@code spring.mvc.throw-exception-if-no-handler-found} 是不够的——
+     * 默认的 {@code /**} 静态资源映射会把所有未匹配路径先接住，直接回 404。
+     */
+    @Test
+    @DisplayName("404 治理：抛异常开关与静态资源映射关闭必须同时生效")
+    void notFoundHandlingRequiresBothProperties() {
+        withProfile("prod", env -> {
+            assertThat(env.getProperty("spring.mvc.throw-exception-if-no-handler-found")).isEqualTo("true");
+            assertThat(env.getProperty("spring.web.resources.add-mappings")).isEqualTo("false");
         });
     }
 

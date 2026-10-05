@@ -1,8 +1,8 @@
 package com.zjc.demo.config;
 
-import java.util.List;
+import java.util.Collections;
 
-import org.springdoc.core.models.GroupedOpenApi;
+import org.springdoc.core.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -44,9 +44,15 @@ import io.swagger.v3.oas.models.servers.Server;
  *
  * <p>
  * <b>版本对齐（踩过坑）：</b>springdoc 的大版本必须跟随 Spring Boot——
- * 2.x 对应 Boot 3，3.x 对应 Boot 4。版本号在 {@code pom.xml} 的 {@code springdoc.version}
- * 里显式锁死：springdoc <b>不在</b> Boot 的依赖管理（BOM）里，不锁版本会解析失败；
- * 版本选错不会编译报错，只在运行期表现为文档接口 500 或 ClassNotFound。
+ * 1.x 对应 Boot 2，2.x 对应 Boot 3，3.x 对应 Boot 4。版本号在 {@code pom.xml} 的
+ * {@code springdoc.version} 里显式锁死：springdoc <b>不在</b> Boot 的依赖管理（BOM）里，
+ * 不锁版本会解析失败；版本选错不会编译报错，只在运行期表现为文档接口 500 或 ClassNotFound。
+ *
+ * <p>
+ * Boot 2 用的 artifact 是 {@code springdoc-openapi-ui}（Boot 3 起改名
+ * {@code springdoc-openapi-starter-webmvc-ui}），Bean 类型也从
+ * {@code org.springdoc.core.GroupedOpenApi} 迁移到了 {@code org.springdoc.core.models.GroupedOpenApi}。
+ * 升级时这两处要一起改，否则编译期就会报错。
  *
  * @author jiancai.zhong
  */
@@ -70,10 +76,10 @@ public class OpenApiConfig {
                 .description("通过当前访问地址调用接口");
 
         return new OpenAPI()
-                .servers(List.of(server))
+                .servers(Collections.singletonList(server))
                 .info(new Info()
                         .title("SpringVortexDemo API")
-                        .description("Spring Boot 4 脚手架模板接口文档")
+                        .description("Spring Boot 2 脚手架模板接口文档")
                         .version("0.0.1")
                         .contact(new Contact()
                                 .name("jiancai.zhong"))

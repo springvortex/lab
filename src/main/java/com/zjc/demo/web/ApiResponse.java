@@ -1,6 +1,5 @@
 package com.zjc.demo.web;
 
-import java.io.Serial;
 import java.io.Serializable;
 
 import org.slf4j.MDC;
@@ -55,7 +54,6 @@ import lombok.Setter;
  */
 public class ApiResponse<T> implements Serializable {
 
-    @Serial
     private static final long serialVersionUID = 1492116327070318294L;
     /**
      * 响应生成时间戳（毫秒），实例创建时固定，不对外提供 setter

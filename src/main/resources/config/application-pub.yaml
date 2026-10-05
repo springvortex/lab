@@ -6,19 +6,29 @@ server:
     max-swallow-size: 2MB
 
 spring:
-  threads:
-    virtual:
-      enabled: true
   mvc:
     async:
       request-timeout: 30s
-  http:
-    client:
-      connect-timeout: 3s
-      read-timeout: 10s
+    # 找不到 Handler 时抛 NoHandlerFoundException，交 GlobalExceptionHandler 转成统一 ApiResponse。
+    # 不配这个开关，404 由容器的 /error 端点接管，返回的是 Boot 默认错误页，不是 ApiResponse 结构。
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      # 纯 API 服务没有静态资源。关掉默认的 /** 静态资源映射，否则所有未匹配路径都会被
+      # ResourceHttpRequestHandler 接住并直接回 404，NoHandlerFoundException 根本不会抛出。
+      add-mappings: false
   jackson:
     time-zone: Asia/Shanghai
     date-format: yyyy-MM-dd HH:mm:ss
+
+app:
+  http:
+    client:
+      # 出站 HTTP 客户端超时（RestTemplate）。
+      # Boot 2 没有 spring.http.client.* 这组配置（它是 Boot 3 才有的），也没有内置的 RestClient，
+      # 因此这里用自定义前缀，由 RestTemplateConfig 通过 @Value 读取并写进 RequestFactory。
+      connect-timeout: 3000
+      read-timeout: 10000
 
 management:
   endpoints:

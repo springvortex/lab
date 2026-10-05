@@ -1,8 +1,13 @@
 package com.zjc.demo.support;
 
+import java.util.Collections;
 import java.util.Map;
 
+import javax.validation.Valid;
+import javax.validation.constraints.NotBlank;
+
 import org.springframework.http.HttpStatus;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,9 +20,6 @@ import com.zjc.demo.constant.ApiResponseConstant;
 import com.zjc.demo.exception.BusinessException;
 import com.zjc.demo.web.ApiResponse;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-
 /**
  * 测试专用接口，用于从真实 HTTP 链路触发各类异常与正常返回。
  *
@@ -29,13 +31,21 @@ import jakarta.validation.constraints.NotBlank;
  * <p>
  * <b>为什么不用 Mockito 打桩异常再调用处理器方法：</b>那样只能验证「处理器拿到异常后返回什么」，
  * 验证不了「异常是否真的会被路由到这个处理器」。本模板最容易踩的坑恰恰是后者，例如
- * Spring 6.1 起 {@code @RequestParam} 上的约束注解改抛
- * {@code HandlerMethodValidationException}，其实际走向与直觉不同。
+ * Spring 版本不同导致的「同一个请求返回完全不同的状态码」：Spring 6.1 起会自动校验
+ * Controller 方法参数并抛 {@code HandlerMethodValidationException}，而 Spring 5（Boot 2）
+ * 必须显式加 {@link Validated} 才校验，且抛的是 {@code ConstraintViolationException}。
+ *
+ * <p>
+ * <b>为什么类上有 {@link Validated}：</b>它是 Spring 5 下开启「方法参数约束校验」的开关。
+ * 加上后 {@code MethodValidationPostProcessor} 会给本类生成代理，方法入参上的
+ * {@code @NotBlank} 才会在调用前生效。Boot 3 可以不加（框架内置），但加了同样兼容，
+ * 因此模板保留它，让两个版本的脚手架行为一致。
  *
  * @author jiancai.zhong
  */
 @RestController
 @RequestMapping("/test")
+@Validated
 public class ExceptionTestController {
 
     /**
@@ -125,7 +135,12 @@ public class ExceptionTestController {
     }
 
     /**
-     * 参数上直接挂校验注解，用于观察 Spring 6.1+ 的方法参数校验走向。
+     * 参数上直接挂校验注解，用于观察 Spring 5 下方法参数校验的走向。
+     *
+     * <p>
+     * 生效前提是类上的 {@link Validated}。校验失败时由 AOP 代理抛
+     * {@code ConstraintViolationException}，其 {@code propertyPath} 形如
+     * {@code 方法名.参数名}，因此最终提示会带上方法名（与 Boot 3 的纯参数名写法不同）。
      *
      * @param name 名称，不允许空白
      * @return 成功响应
@@ -153,7 +168,7 @@ public class ExceptionTestController {
      */
     @GetMapping("/long-value")
     public ApiResponse<Map<String, Long>> longValue() {
-        return ApiResponse.success(Map.of("id", 1234567890123456789L));
+        return ApiResponse.success(Collections.singletonMap("id", 1234567890123456789L));
     }
 
     /**
@@ -163,6 +178,6 @@ public class ExceptionTestController {
      */
     @GetMapping("/big-result")
     public ApiResponse<String> bigResult() {
-        return ApiResponse.success("x".repeat(3000));
+        return ApiResponse.success(TestStrings.repeat("x", 3000));
     }
 }

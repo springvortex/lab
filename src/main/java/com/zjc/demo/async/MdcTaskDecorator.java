@@ -19,12 +19,12 @@ import org.springframework.core.task.TaskDecorator;
  * {@link TaskDecorator} Bean，并自动应用到它创建的执行器上
  * （{@code SimpleAsyncTaskExecutor} 与 {@code ThreadPoolTaskExecutor} 都会）。
  * 因此不需要自己定义 {@code @Async} 的执行器 Bean——只声明本类的 Bean 即可全局生效，
- * 也不会覆盖 Boot 对虚拟线程等默认配置的适配。
+ * 也不会丢掉 Boot 对线程池参数的默认配置。
  *
  * <p>
  * <b>注意事项：</b>
  * <ul>
- * <li>任务结束时 {@code finally} 里调用 {@code MDC.clear()}。虚拟线程与线程池都会复用线程，
+ * <li>任务结束时 {@code finally} 里调用 {@code MDC.clear()}。线程池会复用线程，
  * 不清理会让上一个任务的 traceId 串到下一个任务；</li>
  * <li>装饰发生在<b>提交任务时</b>，因此只能捕获提交那一刻的 MDC 快照，
  * 提交之后主线程对 MDC 的修改不会同步过去；</li>

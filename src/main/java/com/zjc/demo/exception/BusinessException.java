@@ -1,7 +1,5 @@
 package com.zjc.demo.exception;
 
-import java.io.Serial;
-
 import org.springframework.http.HttpStatus;
 
 import com.zjc.demo.constant.ApiResponseConstant;
@@ -43,7 +41,6 @@ import lombok.Getter;
 @Getter
 public class BusinessException extends RuntimeException {
 
-    @Serial
     private static final long serialVersionUID = 8505723016403438176L;
     /**
      * 错误码，同时作为 HTTP 响应状态码使用。
