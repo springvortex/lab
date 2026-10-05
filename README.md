@@ -84,12 +84,12 @@ public class VersionedOrderController {
 
 ```yaml
 spring:
-    mvc:
-        apiversion:
-            use:
-                header: X-API-Version   # 从哪个请求头读版本
-            supported: "1.0,2.0"      # 支持哪些版本
-            default: "1.0"            # 没带版本头时算哪个版本（这一条必须写！）
+  mvc:
+    apiversion:
+      use:
+        header: X-API-Version  # 从哪个请求头读版本
+      supported: "1.0,2.0"     # 支持哪些版本
+      default: "1.0"           # 没带版本头时算哪个版本（这一条必须写！）
 ```
 
 ### 试一试
@@ -156,14 +156,14 @@ public class HttpServiceClientConfig {
 
 ```yaml
 spring:
-    http:
-        serviceclient:
-            catalog: # 与 group 名对应
-                base-url: http://localhost:${server.port}
-                connect-timeout: 3s
-                read-timeout: 10s
-                default-header:
-                    X-Client: spring-vortex-demo
+  http:
+    serviceclient:
+      catalog:                                     # 与 group 名对应
+        base-url: http://localhost:${server.port}
+        connect-timeout: 3s
+        read-timeout: 10s
+        default-header:
+          X-Client: spring-vortex-demo
 ```
 
 之后在业务代码里注入就能用，跟调本地方法一样：
@@ -329,16 +329,16 @@ Boot 4.1 起，这些都可以用配置项直接声明：
 
 ```yaml
 spring:
-    jackson:
+  jackson:
+    read:
+      strict-duplicate-detection: true  # 同一个字段出现两次，直接拒绝
+    write:
+      write-bigdecimal-as-plain: true   # 金额别写成 1.0E+7 这种
+    factory:
+      constraints:                      # 解析器级保护，防"一个请求打挂服务"
         read:
-            strict-duplicate-detection: true      # 同一个字段出现两次，直接拒绝
-        write:
-            write-bigdecimal-as-plain: true       # 金额别写成 1.0E+7 这种
-        factory:
-            constraints: # 解析器级保护，防"一个请求打挂服务"
-                read:
-                    max-nesting-depth: 1000           # JSON 最多嵌套多少层
-                    max-string-length: 100000000      # 单个字符串最长多少
+          max-nesting-depth: 1000       # JSON 最多嵌套多少层
+          max-string-length: 100000000  # 单个字符串最长多少
 ```
 
 ### 为什么要开"重复字段检测"
@@ -458,9 +458,9 @@ private @Nullable CatalogItem lastQueried;   // 确实可能还没查过
 
 ```yaml
 management:
-    info:
-        process:
-            enabled: true      # 默认是 false，按需打开
+  info:
+    process:
+      enabled: true  # 默认是 false，按需打开
 ```
 
 ```bash
