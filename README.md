@@ -1,8 +1,8 @@
 # Spring Boot 2 脚手架模板
 
-> 本 README 位于 `template2.8` 分支（JDK 8 + Spring Boot 2.7.18 版本）。
+> 本 README 位于 `sample/boot2-jdk8` 分支（JDK 8 + Spring Boot 2.7.18 版本）。
 > 这里是一切新项目的起点，本身不承载任何业务。
-> 同款脚手架另有 `template3`（JDK 21 + Boot 3.5.16）与 `template`（JDK 25 + Boot 4）分支，按需取用。
+> 同款脚手架另有 `sample/boot3-jdk21`（JDK 21 + Boot 3.5.16）与 `sample/boot4-jdk25`（JDK 25 + Boot 4）分支，按需取用。
 
 ## 技术栈
 
@@ -500,25 +500,25 @@ curl http://localhost:8000/swagger-ui/index.html
 ## 分支策略（重要）
 
 ```
-main                     默认分支：纯索引，只记录各分支用途，不含代码
-└── template             基座分支：Boot 4 / JDK 25 版脚手架
-    ├── template3        JDK 21 + Boot 3.5.16 版脚手架（本分支的上游）
-    ├── template2.8      JDK 8 + Boot 2.7.18 版脚手架（本 README 所在）
-    ├── xxxxx-mysql      教程分支：Spring Boot 集成 MySQL
-    └── xxxxx-…          每个教程分支只讲一个主题
+main                        默认分支：纯索引，只记录各分支用途，不含代码
+└── sample/boot4-jdk25      基座分支：Boot 4 / JDK 25 版脚手架
+    ├── sample/boot3-jdk21  JDK 21 + Boot 3.5.16 版脚手架（本分支的上游）
+    ├── sample/boot2-jdk8   JDK 8 + Boot 2.7.18 版脚手架（本 README 所在）
+    ├── xxxxx-mysql         教程分支：Spring Boot 集成 MySQL
+    └── xxxxx-…             每个教程分支只讲一个主题
 ```
 
 约定：
 
 1. `main` **只做导航**，不写代码，是别人 clone 下来看到的第一个分支。
-2. 任何教程 / 实验分支**一律从对应版本的 template 拉取**，不要在别的教程分支上继续叠加 feature，避免主题互相污染。
+2. 任何教程 / 实验分支**一律从对应版本的 `sample/*` 分支拉取**，不要在别的教程分支上继续叠加 feature，避免主题互相污染。
 3. 新建教程分支后在 `main` 的 README 里补一行记录，保持索引可查。
 4. 注意：远端 `origin/HEAD` 指向 `main`，从脚手架分支提 PR / push 时要显式指定目标分支。
 5. **三个脚手架分支要平行维护**：改了某一版的基建（超时配置、异常处理器、springdoc 版本等），
    记得评估另外两版是否需要跟着改。
 
 ```bash
-git switch template2.8 && git pull --ff-only
+git switch sample/boot2-jdk8 && git pull --ff-only
 git switch -c xxxxx-mysql
 git push -u origin xxxxx-mysql
 ```
@@ -531,10 +531,10 @@ git push -u origin xxxxx-mysql
 
 ```bash
 # 同一仓库內拉分支
-git switch template2.8 && git pull --ff-only && git switch -c feature/your-project
+git switch sample/boot2-jdk8 && git pull --ff-only && git switch -c feature/your-project
 
 # 或独立新仓库
-git clone --branch template2.8 --single-branch <url> your-project && cd your-project && rm -rf .git && git init
+git clone --branch sample/boot2-jdk8 --single-branch <url> your-project && cd your-project && rm -rf .git && git init
 ```
 
 ### 2. 改 Maven 坐标（`pom.xml`）
