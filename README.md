@@ -10,7 +10,7 @@
 > ```
 >
 > 配了 SSH 密钥的话，把地址换成 `git@github.com:springvortex/lab.git` 即可。
-> 分支说明：`springboot4/feature` 就是本文所在分支；只想看脚手架本身的约定，用 `-b template`。
+> 分支说明：`springboot4/feature` 就是本文所在分支；只想看脚手架本身的约定，用 `-b sample/boot4-jdk25`。
 
 这篇面向刚接触 Spring Boot 4 的同学。每个新特性都用大白话讲清楚"**以前怎么做、现在怎么做**"，并且都配了能跑起来的示例代码和
 curl 命令——看完可以自己动手试一遍。文中所有代码都在 `springboot4/feature` 分支里，路径都标在每一节末尾。
@@ -532,4 +532,4 @@ src/main/java/com/zjc/demo/
 新增配置都在 `src/main/resources/config/application-pub.yaml`（公共配置，各环境通用）。
 
 > 脚手架本身的说明（统一响应格式、traceId 链路、配置分层、测试覆盖率门禁等）在
-> `template` 分支的 README 里，需要时用 `git show template:README.md` 查看。
+> `sample/boot4-jdk25` 分支的 README 里，需要时用 `git show sample/boot4-jdk25:README.md` 查看。
