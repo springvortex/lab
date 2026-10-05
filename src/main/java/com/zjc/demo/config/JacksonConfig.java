@@ -25,37 +25,35 @@ import tools.jackson.databind.ser.std.ToStringSerializer;
 @Configuration
 public class JacksonConfig {
 
-    /**
-     * 是否把 Long 序列化成字符串。默认开启，可通过 {@code app.jackson.long-to-string} 关闭
-     * （模板已把该项显式写在 {@code config/application-pub.yaml} 里）。
-     *
-     * <p>
-     * 背景：JS 的 Number 是双精度浮点，安全整数范围是 ±(2^53-1)。后端用雪花算法生成的
-     * 19 位 Long 型 ID（如 {@code 1627927676485431298}）传到前端会被静默截断成
-     * {@code 1627927676485431000}，而且不报错——是前后端联调里极难排查的一类 bug。
-     * 统一转成字符串可以从根上规避。
-     */
-    @Value("${app.jackson.long-to-string:true}")
-    private boolean longToStringEnabled;
+	/**
+	 * 是否把 Long 序列化成字符串。默认开启，可通过 {@code app.jackson.long-to-string} 关闭 （模板已把该项显式写在
+	 * {@code config/application-pub.yaml} 里）。
+	 *
+	 * <p>
+	 * 背景：JS 的 Number 是双精度浮点，安全整数范围是 ±(2^53-1)。后端用雪花算法生成的 19 位 Long 型 ID（如
+	 * {@code 1627927676485431298}）传到前端会被静默截断成
+	 * {@code 1627927676485431000}，而且不报错——是前后端联调里极难排查的一类 bug。 统一转成字符串可以从根上规避。
+	 */
+	@Value("${app.jackson.long-to-string:true}")
+	private boolean longToStringEnabled;
 
-    /**
-     * 注册 Long → String 序列化器。
-     *
-     * <p>
-     * 反序列化方向不受影响：前端传来的数字或字符串都能正常转成 {@code Long}，
-     * 因此这是一个<b>单向、向后兼容</b>的改动。
-     *
-     * @return Jackson 定制器
-     */
-    @Bean
-    public JsonMapperBuilderCustomizer jsonMapperBuilderCustomizer() {
-        return builder -> {
-            if (longToStringEnabled) {
-                SimpleModule longModule = new SimpleModule("LongToStringModule");
-                longModule.addSerializer(Long.class, ToStringSerializer.instance);
-                longModule.addSerializer(Long.TYPE, ToStringSerializer.instance);
-                builder.addModule(longModule);
-            }
-        };
-    }
+	/**
+	 * 注册 Long → String 序列化器。
+	 *
+	 * <p>
+	 * 反序列化方向不受影响：前端传来的数字或字符串都能正常转成 {@code Long}， 因此这是一个<b>单向、向后兼容</b>的改动。
+	 *
+	 * @return Jackson 定制器
+	 */
+	@Bean
+	public JsonMapperBuilderCustomizer jsonMapperBuilderCustomizer() {
+		return builder -> {
+			if (longToStringEnabled) {
+				SimpleModule longModule = new SimpleModule("LongToStringModule");
+				longModule.addSerializer(Long.class, ToStringSerializer.instance);
+				longModule.addSerializer(Long.TYPE, ToStringSerializer.instance);
+				builder.addModule(longModule);
+			}
+		};
+	}
 }

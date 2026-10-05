@@ -24,10 +24,9 @@ import lombok.Getter;
  * }</pre>
  *
  * <p>
- * <b>约定：{@code code} 就是 HTTP 状态码</b>，会被
- * {@code ApiResponse#httpStatus()} 用来驱动真实的 HTTP 响应状态。因此自定义 {@link ErrorCodeConstant}
- * 枚举时应让 {@code code()} 返回合法的 HTTP 状态码（100~599）；若返回了 0 / -1 / 10001
- * 这类非 HTTP 语义的值，响应会兜底成 500。
+ * <b>约定：{@code code} 就是 HTTP 状态码</b>，会被 {@code ApiResponse#httpStatus()}
+ * 用来驱动真实的 HTTP 响应状态。因此自定义 {@link ErrorCodeConstant} 枚举时应让 {@code code()} 返回合法的
+ * HTTP 状态码（100~599）；若返回了 0 / -1 / 10001 这类非 HTTP 语义的值，响应会兜底成 500。
  *
  * <p>
  * <b>使用注意：</b>
@@ -43,56 +42,56 @@ import lombok.Getter;
 @Getter
 public class BusinessException extends RuntimeException {
 
-    @Serial
-    private static final long serialVersionUID = 8505723016403438176L;
-    /**
-     * 错误码，同时作为 HTTP 响应状态码使用。
-     */
-    private final int code;
+	@Serial
+	private static final long serialVersionUID = 8505723016403438176L;
+	/**
+	 * 错误码，同时作为 HTTP 响应状态码使用。
+	 */
+	private final int code;
 
-    /**
-     * 使用 {@link ErrorCodeConstant} 枚举构造（推荐）。
-     *
-     * @param errorCodeConstant 错误码枚举
-     */
-    public BusinessException(ErrorCodeConstant errorCodeConstant) {
-        super(errorCodeConstant.message());
-        this.code = errorCodeConstant.code();
-    }
+	/**
+	 * 使用 {@link ErrorCodeConstant} 枚举构造（推荐）。
+	 *
+	 * @param errorCodeConstant 错误码枚举
+	 */
+	public BusinessException(ErrorCodeConstant errorCodeConstant) {
+		super(errorCodeConstant.message());
+		this.code = errorCodeConstant.code();
+	}
 
-    /**
-     * 自定义提示信息，错误码默认 {@code 400}（通用失败）。
-     *
-     * @param message 错误提示
-     */
-    public BusinessException(String message) {
-        super(message);
-        this.code = ApiResponseConstant.FAILURE.code();
-    }
+	/**
+	 * 自定义提示信息，错误码默认 {@code 400}（通用失败）。
+	 *
+	 * @param message 错误提示
+	 */
+	public BusinessException(String message) {
+		super(message);
+		this.code = ApiResponseConstant.FAILURE.code();
+	}
 
-    /**
-     * 自定义错误码 + 提示信息。
-     *
-     * <p>
-     * {@code code} 应为合法 HTTP 状态码，否则响应会兜底为 500。
-     *
-     * @param code    错误码（HTTP 状态码）
-     * @param message 错误提示
-     */
-    public BusinessException(int code, String message) {
-        super(message);
-        this.code = code;
-    }
+	/**
+	 * 自定义错误码 + 提示信息。
+	 *
+	 * <p>
+	 * {@code code} 应为合法 HTTP 状态码，否则响应会兜底为 500。
+	 *
+	 * @param code    错误码（HTTP 状态码）
+	 * @param message 错误提示
+	 */
+	public BusinessException(int code, String message) {
+		super(message);
+		this.code = code;
+	}
 
-    /**
-     * 以 {@link HttpStatus} 指定错误码 + 自定义提示信息，避免手写状态码数字。
-     *
-     * @param status  HTTP 状态码
-     * @param message 错误提示
-     */
-    public BusinessException(HttpStatus status, String message) {
-        super(message);
-        this.code = status.value();
-    }
+	/**
+	 * 以 {@link HttpStatus} 指定错误码 + 自定义提示信息，避免手写状态码数字。
+	 *
+	 * @param status  HTTP 状态码
+	 * @param message 错误提示
+	 */
+	public BusinessException(HttpStatus status, String message) {
+		super(message);
+		this.code = status.value();
+	}
 
 }
