@@ -1,6 +1,5 @@
 package com.zjc.demo.support;
 
-import java.util.Collections;
 import java.util.Map;
 
 import javax.validation.Valid;
@@ -168,7 +167,7 @@ public class ExceptionTestController {
      */
     @GetMapping("/long-value")
     public ApiResponse<Map<String, Long>> longValue() {
-        return ApiResponse.success(Collections.singletonMap("id", 1234567890123456789L));
+        return ApiResponse.success(Map.of("id", 1234567890123456789L));
     }
 
     /**
@@ -178,6 +177,6 @@ public class ExceptionTestController {
      */
     @GetMapping("/big-result")
     public ApiResponse<String> bigResult() {
-        return ApiResponse.success(TestStrings.repeat("x", 3000));
+        return ApiResponse.success("x".repeat(3000));
     }
 }

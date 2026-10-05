@@ -12,7 +12,6 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import com.zjc.demo.constant.TraceConstant;
-import com.zjc.demo.support.TestStrings;
 
 /**
  * {@link TraceIdFilter} 的单元测试。
@@ -138,11 +137,11 @@ class TraceIdFilterTest {
     @DisplayName("超长 traceId：截断到 64 位")
     void overlongTraceIdIsTruncated() throws Exception {
         AtomicReference<String> inChain = new AtomicReference<>();
-        String tooLong = TestStrings.repeat("a", 100);
+        String tooLong = "a".repeat(100);
 
         String traceId = runFilter(requestWithTraceHeader(tooLong), inChain);
 
-        assertThat(traceId).hasSize(TraceConstant.MAX_LENGTH).isEqualTo(TestStrings.repeat("a", 64));
+        assertThat(traceId).hasSize(TraceConstant.MAX_LENGTH).isEqualTo("a".repeat(64));
     }
 
     /**
@@ -154,7 +153,7 @@ class TraceIdFilterTest {
     @DisplayName("边界值：长度 64 不截断")
     void exactlyMaxLengthIsKept() throws Exception {
         AtomicReference<String> inChain = new AtomicReference<>();
-        String boundary = TestStrings.repeat("b", TraceConstant.MAX_LENGTH);
+        String boundary = "b".repeat(TraceConstant.MAX_LENGTH);
 
         assertThat(runFilter(requestWithTraceHeader(boundary), inChain)).isEqualTo(boundary);
     }

@@ -2,7 +2,7 @@ package com.zjc.demo.exception;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 import javax.validation.ConstraintViolation;
@@ -150,7 +150,7 @@ class GlobalExceptionHandlerTest {
     @DisplayName("Content-Type 不支持：返回 415")
     void mediaTypeNotSupportedReturns415() {
         HttpMediaTypeNotSupportedException e =
-                new HttpMediaTypeNotSupportedException(MediaType.TEXT_PLAIN, Collections.<MediaType>emptyList());
+                new HttpMediaTypeNotSupportedException(MediaType.TEXT_PLAIN, List.<MediaType>of());
 
         ResponseEntity<ApiResponse<Void>> response = handler.handleMediaTypeNotSupported(e);
 
@@ -303,8 +303,10 @@ class GlobalExceptionHandlerTest {
          */
         @Test
         @DisplayName("非标准状态码：兜底为 500 且不抛异常")
+        @SuppressWarnings("deprecation")
         void unresolvableStatusFallsBackTo500() {
-            // Spring 5 提供 (int, String, Throwable) 构造器，允许塞进 HttpStatus 枚举之外的状态码
+            // Spring 5 独有的 (int, String, Throwable) 构造器在 5.3 已标记 @Deprecated，
+            // 但它是唯一能把 HttpStatus 枚举之外的状态码塞进异常的方式，此处刻意保留。
             ResponseEntity<ApiResponse<Void>> response =
                     handler.handleResponseStatus(new ResponseStatusException(599, null, null));
 

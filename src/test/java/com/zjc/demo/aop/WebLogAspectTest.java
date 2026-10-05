@@ -22,7 +22,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zjc.demo.exception.BusinessException;
-import com.zjc.demo.support.TestStrings;
 
 /**
  * {@link WebLogAspect} 的单元测试。
@@ -168,7 +167,7 @@ class WebLogAspectTest {
     void truncatesOverlongResult() throws Throwable {
         bindRequestContext();
         when(joinPoint.getArgs()).thenReturn(new Object[0]);
-        when(joinPoint.proceed()).thenReturn(TestStrings.repeat("x", 3000));
+        when(joinPoint.proceed()).thenReturn("x".repeat(3000));
 
         assertThat((String) aspect.logAround(joinPoint)).hasSize(3000);
     }

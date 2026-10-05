@@ -1,15 +1,16 @@
 # Spring Boot 2 脚手架模板
 
-> 本 README 位于 `template2.8` 分支（JDK 8 + Spring Boot 2.7.18 版本）。
+> 本 README 位于 `template2.11` 分支（JDK 11 + Spring Boot 2.7.18 版本）。
 > 这里是一切新项目的起点，本身不承载任何业务。
-> 同款脚手架另有 `template3`（JDK 21 + Boot 3.5.16）与 `template`（JDK 25 + Boot 4）分支，按需取用。
+> 同款脚手架另有 `template2.8`（JDK 8 + Boot 2.7.18）、`template3`（JDK 21 + Boot 3.5.16）
+> 与 `template`（JDK 25 + Boot 4）分支，按需取用。
 
 ## 技术栈
 
 | 项            | 版本 / 选型                                                                        |
 |--------------|----------------------------------------------------------------------------------|
 | Spring Boot  | 2.7.18（Spring Framework 5.3.31）                                                 |
-| JDK          | 8（Boot 2.7 支持 8 ~ 19）                                                           |
+| JDK          | 11（Boot 2.7 支持 8 ~ 19）                                                          |
 | Web          | `spring-boot-starter-web` + Tomcat 9.0.83（Servlet 4.0 / `javax.*` 命名空间）             |
 | JSON         | Jackson 2.13.5（`com.fasterxml.jackson.*`）                                        |
 | 校验           | `spring-boot-starter-validation`（Hibernate Validator 6.2.5 / Bean Validation 2.0）     |
@@ -21,6 +22,28 @@
 
 > **命名空间是 `javax.*`，不是 `jakarta.*`。**  Jakarta 的包名迁移发生在 Spring Framework 6 / Boot 3，
 > 本分支沿用的是 `javax.servlet.*`、`javax.validation.*`。升级到 Boot 3 时这是一次全局替换。
+
+## Java 语法基线（JDK 8 → JDK 11 差异）
+
+本分支锁定 **JDK 11**（Boot 2.7 官方支持 8 ~ 19）。相对 `template2.8`，可用的语法多了这些：
+
+| 版本      | 可用能力                                                                       | 本分支的用法举例                                    |
+|---------|-----------------------------------------------------------------------------|---------------------------------------------|
+| Java 9  | `String#repeat`                                                             | `"x".repeat(3000)`（测试里造超长 traceId / 大报文用）     |
+| Java 9  | `List.of` / `Map.of` / `Set.of` 不可变集合工厂                                      | `List.of(server)`、`Map.of("id", 123L)`      |
+| Java 10 | `var` 局部变量推断                                                              | 可选，本模板未强求使用                                |
+| Java 11 | `String#isBlank` / `strip` / `lines`、`Optional#isEmpty`、单文件源码直跑                 | 按需使用                                        |
+
+仍**不可用**（Java 12+ 特性，升上去之前别写）：
+
+- `@Serial`（Java 14+）→ `serialVersionUID` 继续手写属性
+- records / sealed class（Java 16+）、text block（Java 15+）、switch 表达式（Java 14+）
+- 虚拟线程（Java 21+），对应地 Boot 2 也没有 `spring.threads.virtual.enabled`
+
+> **与 `template2.8` 的实质差异仅此一处。** 那个分支锁定 JDK 8，当时为绕开语法限制在
+> `support/TestStrings` 里自建了 `repeat()`，集合工厂也退回 `Collections.singletonList()`。
+> 本分支已把这两类补丁**还原成原生写法并删除了 `TestStrings`**（用例数相应从 125 降为 121）。
+> 反向迁移（11 → 8）时照此逆向操作即可，Boot 2 的其余结论完全通用。
 
 ## 目录结构
 
@@ -75,12 +98,12 @@ body」的做法。好处是网关重试、前端拦截器、APM 告警都能按
 
 ```json
 {
-    "success": false,
-    "code": 404,
-    "message": "资源不存在",
-    "data": null,
-    "traceId": "06e9610c586245f3af21807231411a75",
-    "timestamp": "1790761655561"
+  "success": false,
+  "code": 404,
+  "message": "资源不存在",
+  "data": null,
+  "traceId": "06e9610c586245f3af21807231411a75",
+  "timestamp": "1790761655561"
 }
 ```
 
@@ -106,11 +129,11 @@ body」的做法。好处是网关重试、前端拦截器、APM 告警都能按
 
 ```yaml
 spring:
-    mvc:
-        throw-exception-if-no-handler-found: true  # 没有 Handler 时抛异常
-    web:
-        resources:
-            add-mappings: false                    # 关掉默认的 /** 静态资源映射
+  mvc:
+    throw-exception-if-no-handler-found: true  # 没有 Handler 时抛异常
+  web:
+    resources:
+      add-mappings: false                      # 关掉默认的 /** 静态资源映射
 ```
 
 只配第一个是不够的：Boot 默认的静态资源 Handler 映射在 `/**` 上，会把所有未匹配路径先接住，
@@ -254,10 +277,10 @@ public class UserService {
 
 ```yaml
 app:
-    cors:
-        allowed-origins: '*'      # 生产务必收敛到具体域名
-        max-age: 3600
-        allow-credentials: false  # 开启凭证时 allowed-origins 不能是 *
+  cors:
+    allowed-origins: '*'      # 生产务必收敛到具体域名
+    max-age: 3600
+    allow-credentials: false  # 开启凭证时 allowed-origins 不能是 *
 ```
 
 > 注意：一旦 `allow-credentials: true` 而 `allowed-origins: *`，Spring 会在处理请求的瞬间抛
@@ -296,20 +319,20 @@ Boot 2 的定制器是 `Jackson2ObjectMapperBuilderCustomizer`（Boot 4 改名 `
 
 ```yaml
 server:
-    tomcat:
-        connection-timeout: 20s      # accept 后等待请求行的时间；Tomcat 默认 60s，这里收紧到 20s
-        keep-alive-timeout: 20s      # 长连接空闲等待下一个请求的时间；不设则取 connection-timeout
-        max-keep-alive-requests: 100 # 单连接最多复用次数，防长连接被单客户端长期占用
-        max-swallow-size: 2MB        # 客户端中断时最多再读多少请求体，以便正常回响应
+  tomcat:
+    connection-timeout: 20s       # accept 后等待请求行的时间；Tomcat 默认 60s，这里收紧到 20s
+    keep-alive-timeout: 20s       # 长连接空闲等待下一个请求的时间；不设则取 connection-timeout
+    max-keep-alive-requests: 100  # 单连接最多复用次数，防长连接被单客户端长期占用
+    max-swallow-size: 2MB         # 客户端中断时最多再读多少请求体，以便正常回响应
 spring:
-    mvc:
-        async:
-            request-timeout: 30s     # Callable / DeferredResult；不配就是永不超时
+  mvc:
+    async:
+      request-timeout: 30s        # Callable / DeferredResult；不配就是永不超时
 app:
-    http:
-        client:
-            connect-timeout: 3000    # 出站建连（毫秒），由 RestTemplateConfig 读取
-            read-timeout: 10000      # 出站读响应（毫秒）；不配 = 无限等待
+  http:
+    client:
+      connect-timeout: 3000       # 出站建连（毫秒），由 RestTemplateConfig 读取
+      read-timeout: 10000         # 出站读响应（毫秒）；不配 = 无限等待
 ```
 
 三个容易踩的点：
@@ -320,7 +343,7 @@ app:
    由 `RestTemplateConfig` 通过 `@Value` 读取，`ProfileConfigTest` 有断言钉着。
 2. `server.connection-timeout` 是**通用键，自 Boot 2.1 起按 error 级废弃**，理由是各容器语义不同；
    Tomcat 请写 `server.tomcat.connection-timeout`。
-3. JDK 8 没有虚拟线程，`spring.threads.virtual.enabled` 在 Boot 2 里也不存在。这里的线程池就是
+3. JDK 11 没有虚拟线程（虚拟线程是 JDK 21 才正式 GA 的），`spring.threads.virtual.enabled` 在 Boot 2 里也不存在。这里的线程池就是
    Boot 默认的 `ThreadPoolTaskExecutor`，参数用 `spring.task.execution.pool.*` 调整。
 
 ### Actuator 监控端点
@@ -359,9 +382,10 @@ app:
    **非 void 必须有 `@return`**，否则 `doclint` 的 `missing` 组会报错。
 3. `<p>` 与 `<ul>` / `<li>` 要闭合；`<pre>{@code ... }</pre>` 里的花括号必须成对。
 4. **代码块里「行首的 `@`」要写成 HTML 实体 `&#64;`，并且用纯 `<pre>` 而不是 `<pre>{@code`。**
-   javadoc 会把行首的 `@Override` 当成块级标记（未知标记 → 报 `未知标记: Override`），
-   并把 `<pre>{@code` 判定成「未终止的内嵌标记」。注意此时**不能**用 `@@` 转义——JDK 8 的
-   javadoc 不认这种写法，会报「`@` 后没有标记名」。`WebConfig#addInterceptors` 的注释里有现成范例。
+   javadoc 会把行首的 `@Override` 当成块级标记（未知标记 → 报 `未知标记: Override`）。
+   注意此时**不能**用 `@@` 转义——实测 javadoc 会把首行的 `<pre>{@code` 判成「未终止的内嵌标记」，
+   同时 `@@Override` 还会额外报「`@` 后没有标记名」（JDK 8 与 JDK 11 行为一致，二者都走不通）。
+   `WebConfig#addInterceptors` 的注释里有现成范例。
 
 **校验命令**（`maven-javadoc-plugin` 未随项目引入，直接用 JDK 自带的 `javadoc` 检查即可）：
 
@@ -381,7 +405,8 @@ javadoc -Xdoclint:all,-missing -quiet -encoding UTF-8 -charset UTF-8 \
 
 ### 测试与覆盖率（JaCoCo）
 
-模板自带一套可运行的测试与覆盖率门禁，当前状态：**124 个用例全绿，行 / 分支覆盖率 100%**。
+模板自带一套可运行的测试与覆盖率门禁，当前状态：**121 个用例全绿，行 / 分支覆盖率 100%**
+（1482/1482 指令、68/68 分支、331/331 行，复杂度与方法遗漏均为 0）。
 
 **为什么引入 JaCoCo：**模板是派生项目的基线，它的正确性只能靠测试守住。而「测试写没写全」
 不能靠肉眼看——`jacoco:check` 把覆盖率变成构建门禁，漏测会直接让 `mvn verify` 失败。
@@ -398,7 +423,7 @@ mvn -o test -Djacoco.skip=true   # 临时跳过覆盖率统计（排查构建问
 
 | 配置项                                | 说明                                                                |
 |------------------------------------|-------------------------------------------------------------------|
-| `jacoco.version` = `0.8.15`        | JaCoCo 版本需支持被测字节码：Java 8 只是 class file 52，0.8.x 全都覆盖；升到 JDK 21（65）/ 25（69）时才需要重新核对 |
+| `jacoco.version` = `0.8.15`        | JaCoCo 版本需支持被测字节码：Java 11 是 class file 55，0.8.x 全都覆盖；升到 JDK 21（65）/ 25（69）时才需要重新核对  |
 | `jacoco.minimum-coverage` = `0.80` | 门禁阈值（0.00~1.00）。模板实测为 100%，阈值留 0.80 是给派生项目加代码时的缓冲，不必改插件配置         |
 | 排除 `DemoApplication.class`         | 启动入口类只做 `SpringApplication.run` 转发，覆盖它需要起真容器且无任何业务价值，按业界惯例排除      |
 | `check` 绑定 `verify` 阶段             | `mvn test` 不会被覆盖率卡住，只有 `verify` / `install` / `deploy` 才强制校验      |
@@ -484,16 +509,22 @@ curl http://localhost:8000/hello
 curl http://localhost:8000/swagger-ui/index.html
 ```
 
-> Boot 2.7 支持 JDK 8 ~ 19，本模板构建**目标设为 Java 8**。若终端默认的 `JAVA_HOME` 指向更高版本
+> Boot 2.7 支持 JDK 8 ~ 19，本模板构建**目标设为 Java 11**。若终端默认的 `JAVA_HOME` 指向更高版本
 > 会顺利用更高字节码编译出包（看不到问题），但换个环境就可能不兼容；反过来若默认 `JAVA_HOME` 是
-> JDK 8 而分支是 Boot 3，会直接报 `类文件具有错误的版本 61.0, 应为 52.0`。
+> 低版本而分支是 Boot 3，会直接报 `类文件具有错误的版本 61.0, 应为 55.0`。
 > 因此**构建时显式指定 JDK** 是最省事的做法：
 >
 > ```bash
-> JAVA_HOME="D:/app/Java/jdk1.8.0_471" mvn -o clean test   # Windows Git Bash
+> JAVA_HOME="D:/app/Java/jdk-11.0.29" mvn -o clean test   # Windows Git Bash
 > ```
->
-> 顺带装 agent 可消除 Mockito 自挂载警告：`-XX:+EnableDynamicAgentLoading`。
+
+> `-XX:+EnableDynamicAgentLoading` 是 **JDK 21+** 才有的 JVM 参数，用于消除 Mockito 自挂载代理的
+> 警告。本分支跑 JDK 11，**不要照抄**——JDK 11 会直接报 `Unrecognized VM option` 并启动失败。
+
+> **覆盖率突然掉到个位数时先看构建日志**：若出现成片的
+> `Classes in bundle ... do not match with execution data`，说明 JaCoCo 拿到的埋点数据与
+> 当前 class 文件对不上（多因上一次编译产物残留所致），**报告里的数字不可信**。
+> `mvn -o clean test` 重跑一次即可恢复。
 
 ---
 
@@ -502,11 +533,18 @@ curl http://localhost:8000/swagger-ui/index.html
 ```
 main                     默认分支：纯索引，只记录各分支用途，不含代码
 └── template             基座分支：Boot 4 / JDK 25 版脚手架
-    ├── template3        JDK 21 + Boot 3.5.16 版脚手架（本分支的上游）
-    ├── template2.8      JDK 8 + Boot 2.7.18 版脚手架（本 README 所在）
+    ├── template3        JDK 21 + Boot 3.5.16 版脚手架（template2.x 的上游）
+    ├── template2.8      JDK 8 + Boot 2.7.18 版脚手架
+    ├── template2.11     JDK 11 + Boot 2.7.18 版脚手架（本 README 所在）
     ├── xxxxx-mysql      教程分支：Spring Boot 集成 MySQL
     └── xxxxx-…          每个教程分支只讲一个主题
 ```
+
+> `template2.8` 与 `template2.11` 是**姊妹分支**：Boot 版本完全相同，唯一差别是 JDK 基线
+> （8 vs 11）。两者今后仍平行维护——改一边要评估另一边。
+> 从 8 → 11 的实际改动面很小：只需把 `java.version` / `source` / `target` 改为 11，
+> 再把 JDK 8 期间为绕开语法限制而写的兼容代码还原成原生写法即可（见「Java 语法基线」一节）。
+> Boot 版本、依赖坐标、404 治理双开关、异常类型等 Boot 2 专属结论，两个分支完全一致。
 
 约定：
 
@@ -514,11 +552,12 @@ main                     默认分支：纯索引，只记录各分支用途，�
 2. 任何教程 / 实验分支**一律从对应版本的 template 拉取**，不要在别的教程分支上继续叠加 feature，避免主题互相污染。
 3. 新建教程分支后在 `main` 的 README 里补一行记录，保持索引可查。
 4. 注意：远端 `origin/HEAD` 指向 `main`，从脚手架分支提 PR / push 时要显式指定目标分支。
-5. **三个脚手架分支要平行维护**：改了某一版的基建（超时配置、异常处理器、springdoc 版本等），
-   记得评估另外两版是否需要跟着改。
+5. **四个脚手架分支要平行维护**：改了某一版的基建（超时配置、异常处理器、springdoc 版本等），
+   记得评估另外三版是否需要跟着改。其中 `template2.8` 与 `template2.11` 只有 JDK 基线不同，
+   凡是**与 JDK 无关**的改动都要同步到两边。
 
 ```bash
-git switch template2.8 && git pull --ff-only
+git switch template2.11 && git pull --ff-only
 git switch -c xxxxx-mysql
 git push -u origin xxxxx-mysql
 ```
@@ -531,27 +570,26 @@ git push -u origin xxxxx-mysql
 
 ```bash
 # 同一仓库內拉分支
-git switch template2.8 && git pull --ff-only && git switch -c feature/your-project
+git switch template2.11 && git pull --ff-only && git switch -c feature/your-project
 
 # 或独立新仓库
-git clone --branch template2.8 --single-branch <url> your-project && cd your-project && rm -rf .git && git init
+git clone --branch template2.11 --single-branch <url> your-project && cd your-project && rm -rf .git && git init
 ```
 
 ### 2. 改 Maven 坐标（`pom.xml`）
 
 ```xml
-
 <groupId>com.yourco</groupId>
 <artifactId>your-project</artifactId>
 <version>0.0.1-SNAPSHOT</version>
-
 <properties>
-<java.version>8</java.version>   <!-- Boot 2.7 支持 8 ~ 19，按需调整 -->
+    <java.version>11</java.version>        <!-- Boot 2.7 支持 8 ~ 19，按需调整 -->
 </properties>
 ```
 
-> 改 JDK 版本时记得同步 `maven.compiler.source` / `maven.compiler.target`（本模板显式写成了 8，
+> 改 JDK 版本时记得同步 `maven.compiler.source` / `maven.compiler.target`（本模板显式写成了 11，
 > 不跟随 Boot 父 pom 的默认 1.8 之外的值，避免 IDE 与命令行构建结果不一致）。
+> 想回退到 JDK 8，除了把这三处改成 8，还需把代码里 Java 9+ 的语法替换掉（见「Java 语法基线」）。
 
 ### 3. 改包名（最容易漏的一步）
 
@@ -584,8 +622,8 @@ IDE 的「Refactor → Rename」只覆盖 1/2/3，**4 和 5 必须手动改**。
 
 ```yaml
 spring:
-    profiles:
-        active: @activatedProperties@    # 交给构建期替换，或用部署时的 --spring.profiles.active 覆盖
+  profiles:
+    active: @activatedProperties@  # 交给构建期替换，或用部署时的 --spring.profiles.active 覆盖
 ```
 
 常见做法：
@@ -644,9 +682,9 @@ mvn clean test
 | 主题              | Boot 2.7                                                        | Boot 3.x                                             |
 |-----------------|-----------------------------------------------------------------|------------------------------------------------------|
 | 命名空间            | `javax.servlet.*` / `javax.validation.*`                        | `jakarta.servlet.*` / `jakarta.validation.*`（全局替换）      |
-| JDK 基线          | 8                                                               | 17                                                   |
-| 语法限制            | 无 `String#repeat` / `List.of` / `@Serial` / `var`（Java 9+ 特性不可用） | 可用到当前 JDK 的所有语法                                      |
-| `serialVersionUID` | 手写属性（无法用 `@Serial` 注解）                                          | 可用 `@Serial`                                        |
+| JDK 基线          | 11（本分支）/ 8（`template2.8`）                                    | 17                                                   |
+| 语法可用性          | 可用到 Java 11（`var` / `String#repeat` / `List.of` / `String#isBlank`） | 可用到当前 JDK 的所有语法                                      |
+| `serialVersionUID` | 手写属性（`@Serial` 要 Java 14+）                                    | 可用 `@Serial`                                        |
 | Web starter     | `spring-boot-starter-web`                                       | 同（到 Boot 4 才改名 `-webmvc`）                            |
 | 出站客户端           | `RestTemplate` + `RestTemplateCustomizer`                       | 同；另有 `RestClient`（Spring 6.1+，Boot 4 才有独立 starter）    |
 | 出站超时            | **无** `spring.http.client.*`，需自行定义属性键                           | `spring.http.client.*`（Boot 4 改复数 `clients`）          |
@@ -659,7 +697,7 @@ mvn clean test
 | `HttpHeaders`   | 实现 `Map`，可用 `containsKey()`                                     | 不再实现 `Map`；`containsHeader()` 是 Spring 6.2+ 才有        |
 | `@MockBean`     | 可用                                                              | 可用但已废弃，Boot 4 换成 `@MockitoBean`                      |
 
-顺序建议：**先把 `javax` → `jakarta` 与 JDK 8 → 17 这两件事做完**（它们是机械替换且量最大），
+顺序建议：**先把 `javax` → `jakarta` 与 JDK 11 → 17 这两件事做完**（它们是机械替换且量最大），
 再逐个处理异常类型与配置键的差异；最后跑一遍 `ApiIntegrationTest`，
 它里面针对 `NoHandlerFoundException` / `ConstraintViolationException` / 出站链路的断言
 会明确指出哪些 Boot 2 行为假设需要重写。

@@ -1,6 +1,6 @@
 package com.zjc.demo.config;
 
-import java.util.Collections;
+import java.util.List;
 
 import org.springdoc.core.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
@@ -76,7 +76,7 @@ public class OpenApiConfig {
                 .description("通过当前访问地址调用接口");
 
         return new OpenAPI()
-                .servers(Collections.singletonList(server))
+                .servers(List.of(server))
                 .info(new Info()
                         .title("SpringVortexDemo API")
                         .description("Spring Boot 2 脚手架模板接口文档")
