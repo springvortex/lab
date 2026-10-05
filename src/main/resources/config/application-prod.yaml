@@ -1,3 +1,10 @@
+# 跨域：生产必须把来源收敛到具体域名，不能沿用 application-cors.yaml 里的通配 "*"。
+app:
+  cors:
+    # 多个来源用英文逗号分隔（"https://a.com,https://b.com"），不要写成 YAML 列表：
+    # 列表在 profile 之间按索引逐项覆盖，项数不一致时会残留 cors.yaml 里的来源。
+    allowed-origins: "https://your-domain.com"
+
 # 接口文档（springdoc）。默认开启，方便 dev / test 直接用；生产在 application-prod.yaml 里关闭。
 springdoc:
   # 是否把 actuator 端点也纳入文档分组

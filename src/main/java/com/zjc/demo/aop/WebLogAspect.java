@@ -14,8 +14,9 @@ import com.zjc.demo.exception.BusinessException;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import lombok.extern.slf4j.Slf4j;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Web 接口日志切面，自动记录 Controller 层的请求入参、返回结果与执行耗时。
@@ -63,7 +64,7 @@ public class WebLogAspect {
      */
     private static final String NULL_VALUE = "null";
     @Resource
-    private JsonMapper jsonMapper;
+    private ObjectMapper objectMapper;
 
     /**
      * 匹配所有 {@code @RestController} 类的公共方法。
@@ -160,7 +161,7 @@ public class WebLogAspect {
             return obj.getClass().getSimpleName();
         }
         try {
-            return jsonMapper.writeValueAsString(obj);
+            return objectMapper.writeValueAsString(obj);
         } catch (Exception e) {
             return obj.getClass().getSimpleName() + "@" + Integer.toHexString(obj.hashCode());
         }

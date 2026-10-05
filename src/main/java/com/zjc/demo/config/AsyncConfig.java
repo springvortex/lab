@@ -1,10 +1,11 @@
 package com.zjc.demo.config;
 
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
 import org.springframework.core.task.TaskDecorator;
+import org.springframework.core.task.support.CompositeTaskDecorator;
 import org.springframework.scheduling.annotation.EnableAsync;
 
 import com.zjc.demo.async.AsyncTaskMetricsDecorator;
@@ -26,10 +27,18 @@ import io.micrometer.core.instrument.MeterRegistry;
  * </ol>
  *
  * <p>
- * <b>Boot 4 起可以注册多个 {@code TaskDecorator}：</b>Boot 会把它们组装成一个
- * {@code CompositeTaskDecorator}，按 {@code @Order} 的顺序包装任务。
- * 注意「依次包装」的语义——<b>列表里最后一个（{@code @Order} 值最大的）是最外层</b>， 最先执行、最后收尾。本类给指标埋点标了
- * {@code @Order(Ordered.LOWEST_PRECEDENCE)}， 让它成为最外层，测到的就是包含链路透传开销在内的端到端耗时。
+ * <b>为什么必须自己组装（Boot 3 的硬限制）：</b>本模板有两个装饰器诉求——「链路上下文透传」
+ * （{@link MdcTaskDecorator}）与「异步任务耗时埋点」（{@link AsyncTaskMetricsDecorator}）。
+ * Boot 3 的任务执行自动配置是用 {@code ObjectProvider<TaskDecorator>.getIfUnique()} 取装饰器的，
+ * 意味着容器里<b>只能有一个</b> {@code TaskDecorator} 类型 Bean：注册两个时它拿不到唯一实例，
+ * 会返回 {@code null} 并<b>静默丢弃全部装饰器</b>（既不报启动错，也不打日志——MDC 透传会悄悄失效）。
+ * 因此这里用 Spring 自带的 {@link CompositeTaskDecorator} 手动把两者组合成<b>一个</b> Bean。
+ *
+ * <p>
+ * <b>顺序语义（容易踩）：</b>{@code CompositeTaskDecorator} 是<i>依次包装</i>的——
+ * 按列表顺序遍历，每个装饰器包住上一个的结果，因此<b>列表里最后一个是最外层</b>，
+ * 最先执行、最后收尾。这里把耗时埋点放在最后，让它成为最外层，测到的就是包含链路透传开销在内的
+ * 端到端耗时；反过来放会少算一段。
  *
  * <p>
  * <b>注意事项：</b>
@@ -48,29 +57,22 @@ import io.micrometer.core.instrument.MeterRegistry;
 public class AsyncConfig {
 
 	/**
-	 * 链路上下文透传装饰器，注册为 Bean 即对所有 Boot 托管的执行器生效。
-	 *
-	 * @return MDC 透传装饰器
-	 */
-	@Bean
-	@Order(0)
-	TaskDecorator mdcTaskDecorator() {
-		return new MdcTaskDecorator();
-	}
-
-	/**
-	 * 异步任务耗时埋点装饰器，与上一个是<b>并列</b>关系，两者会一起生效。
+	 * 唯一的 {@code TaskDecorator} Bean：把「链路上下文透传」与「异步任务耗时埋点」组合起来。
 	 *
 	 * <p>
-	 * 这是 Boot 4 的新能力：注册多个 {@code TaskDecorator} Bean 不再冲突， 由 Boot
-	 * 自动组合，业务上可以把「上下文透传」和「指标埋点」拆成两个独立关注点。
+	 * 两个装饰器在<b>代码层面仍是两个独立类</b>（各自的关注点互不干扰），只是在装配时合成一个 Bean，
+	 * 这是 Boot 3 下同时启用两者的唯一方式，详见类注释里的「为什么必须自己组装」。
+	 *
+	 * <p>
+	 * 列表顺序决定包装顺序：{@link MdcTaskDecorator} 在内层先执行，
+	 * {@link AsyncTaskMetricsDecorator} 在最外层，因此埋点统计的是端到端耗时。
 	 *
 	 * @param meterRegistry 指标注册表，由 actuator 自动配置提供
-	 * @return 耗时埋点装饰器
+	 * @return 组合后的任务装饰器
 	 */
 	@Bean
-	@Order(Ordered.LOWEST_PRECEDENCE)
-	TaskDecorator asyncTaskMetricsDecorator(MeterRegistry meterRegistry) {
-		return new AsyncTaskMetricsDecorator(meterRegistry);
+	TaskDecorator taskDecorator(MeterRegistry meterRegistry) {
+		return new CompositeTaskDecorator(
+				List.of(new MdcTaskDecorator(), new AsyncTaskMetricsDecorator(meterRegistry)));
 	}
 }

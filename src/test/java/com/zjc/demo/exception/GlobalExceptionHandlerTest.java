@@ -10,14 +10,17 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.ErrorResponseException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.zjc.demo.constant.ApiResponseConstant;
@@ -65,7 +68,9 @@ class GlobalExceptionHandlerTest {
     @Test
     @DisplayName("请求体解析失败：message 为 null 时回退到默认文案")
     void notReadableWithNullMessageFallsBackToDefault() {
-        HttpMessageNotReadableException e = new HttpMessageNotReadableException(null, null);
+        // 强转为 Throwable：Jackson 2 / Spring 6 下存在 (String, Throwable) 与
+        // (String, HttpInputMessage) 两个重载，直接传 null 会产生歧义
+        HttpMessageNotReadableException e = new HttpMessageNotReadableException(null, (Throwable) null);
 
         ResponseEntity<ApiResponse<Void>> response = handler.handleNotReadable(e);
 
@@ -186,8 +191,9 @@ class GlobalExceptionHandlerTest {
             for (String path : new String[]{
                     "favicon.ico", "apple-touch-icon.png", "apple-touch-icon-precomposed.png"
             }) {
+                // Spring 6 的构造器只有 (HttpMethod, resourcePath) 两个参数
                 ResponseEntity<ApiResponse<Void>> response = handler.handleNoResourceFound(
-                        new NoResourceFoundException(HttpMethod.GET, "/" + path, path));
+                        new NoResourceFoundException(HttpMethod.GET, path));
                 assertThat(response.getStatusCode()).as("路径 %s", path).isEqualTo(HttpStatus.NOT_FOUND);
             }
         }
@@ -199,7 +205,7 @@ class GlobalExceptionHandlerTest {
         @DisplayName("忽略名单：前导斜杠会被归一化")
         void leadingSlashIsNormalized() {
             ResponseEntity<ApiResponse<Void>> response = handler.handleNoResourceFound(
-                    new NoResourceFoundException(HttpMethod.GET, "/favicon.ico", "/favicon.ico"));
+                    new NoResourceFoundException(HttpMethod.GET, "/favicon.ico"));
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         }
@@ -211,7 +217,7 @@ class GlobalExceptionHandlerTest {
         @DisplayName("非忽略路径：照常告警并返回 404")
         void otherPathsAreLogged() {
             ResponseEntity<ApiResponse<Void>> response = handler.handleNoResourceFound(
-                    new NoResourceFoundException(HttpMethod.GET, "/nope", "nope"));
+                    new NoResourceFoundException(HttpMethod.GET, "nope"));
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         }
@@ -223,9 +229,74 @@ class GlobalExceptionHandlerTest {
         @DisplayName("资源路径为 null：不抛 NPE")
         void nullResourcePathIsSafe() {
             ResponseEntity<ApiResponse<Void>> response = handler.handleNoResourceFound(
-                    new NoResourceFoundException(HttpMethod.GET, "/x", null));
+                    new NoResourceFoundException(HttpMethod.GET, null));
 
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+    }
+
+    /**
+     * 框架自带状态码的异常（{@code ResponseStatusException} 及其父类
+     * {@link ErrorResponseException}）必须按自身状态码透出，而不是被兜底改写成 500。
+     *
+     * <p>
+     * Spring 6 起 {@code ResponseStatusException} 继承自 {@code ErrorResponseException}，
+     * 因此本组断言同时适用于两者。端到端行为（真实 HTTP 请求是否命中本处理器）
+     * 由 {@code ApiIntegrationTest} 中访问 {@code /test/status-*} 的用例验证。
+     */
+    @Nested
+    @DisplayName("框架异常：状态码如实透出")
+    class ErrorResponse {
+
+        /**
+         * 4xx 且带原因：状态码与原因都透给调用方，帮助联调。
+         */
+        @Test
+        @DisplayName("4xx 带原因：状态码与原因都透出")
+        void clientErrorKeepsStatusAndDetail() {
+            ResponseEntity<ApiResponse<Void>> response = handler.handleErrorResponse(
+                    new ResponseStatusException(HttpStatus.CONFLICT, "订单状态冲突"));
+
+            assertStatus(response, HttpStatus.CONFLICT);
+            assertThat(response.getBody().getMessage()).isEqualTo("订单状态冲突");
+        }
+
+        /**
+         * 4xx 但没带原因：消息回退到状态码短语，不能是 null 或空串。
+         */
+        @Test
+        @DisplayName("4xx 无原因：消息回退到状态码短语")
+        void clientErrorWithoutDetailFallsBackToReasonPhrase() {
+            ResponseEntity<ApiResponse<Void>> response = handler.handleErrorResponse(
+                    new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+            assertStatus(response, HttpStatus.NOT_FOUND);
+            assertThat(response.getBody().getMessage()).isEqualTo("Not Found");
+        }
+
+        /**
+         * 5xx：状态码如实透出，但内部细节必须隐藏，只给通用文案。
+         */
+        @Test
+        @DisplayName("5xx：隐藏内部细节")
+        void serverErrorHidesDetails() {
+            ResponseEntity<ApiResponse<Void>> response = handler.handleErrorResponse(
+                    new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "模拟内部细节，不应出现"));
+
+            assertStatus(response, HttpStatus.INTERNAL_SERVER_ERROR);
+            assertThat(response.getBody().getMessage()).isEqualTo(ApiResponseConstant.INTERNAL_ERROR.message());
+        }
+
+        /**
+         * 非标准状态码（{@code HttpStatus.resolve} 返回 null）时兜底为 500，不能抛异常。
+         */
+        @Test
+        @DisplayName("非标准状态码：兜底为 500 且不抛异常")
+        void unresolvableStatusFallsBackTo500() {
+            ResponseEntity<ApiResponse<Void>> response = handler.handleErrorResponse(
+                    new ResponseStatusException(HttpStatusCode.valueOf(599)));
+
+            assertStatus(response, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 }

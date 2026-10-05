@@ -1,23 +1,25 @@
-# Spring Boot 4 脚手架模板
+# Spring Boot 3 脚手架模板
 
-> 本 README 位于 `template` 分支。这里是一切新项目的起点，本身不承载任何业务。
+> 本 README 位于 `template3` 分支（JDK 21 + Spring Boot 3.5.16 版本）。
+> 这里是一切新项目的起点，本身不承载任何业务。
+> 另有 `template` 分支为 JDK 25 + Spring Boot 4 的同款脚手架，按需取用。
 
 ## 技术栈
 
 | 项           | 版本 / 选型                                                                       |
 |-------------|-------------------------------------------------------------------------------|
-| Spring Boot | 4.1.1（Spring Framework 7.0.x）                                                 |
-| JDK         | 25（Boot 4 支持 17 ~ 26）                                                         |
-| Web         | `spring-boot-starter-webmvc` + Tomcat（Servlet 6.1 / Jakarta EE 11）            |
-| JSON        | Jackson 3（`tools.jackson.*`）                                                  |
-| 校验          | `spring-boot-starter-validation`（Hibernate Validator 9 / Bean Validation 3.1） |
-| AOP         | `spring-boot-starter-aspectj`                                                 |
-| 测试          | `spring-boot-starter-webmvc-test`（JUnit 6 / AssertJ 3 / Mockito 5）            |
+| Spring Boot | 3.5.16（Spring Framework 6.2.19）                                               |
+| JDK         | 21（Boot 3 支持 17 ~ 25）                                                        |
+| Web         | `spring-boot-starter-web` + Tomcat（Servlet 6.0 / Jakarta EE 10）               |
+| JSON        | Jackson 2（`com.fasterxml.jackson.*`）                                          |
+| 校验          | `spring-boot-starter-validation`（Hibernate Validator 8 / Bean Validation 3.0） |
+| AOP         | `spring-boot-starter-aop`                                                      |
+| 测试          | `spring-boot-starter-test`（JUnit 5 / AssertJ 3 / Mockito 5）                    |
 | 工具          | Lombok 1.18.x、`spring-boot-devtools`（optional）                                |
 | 并发          | 虚拟线程，**默认开启**（`spring.threads.virtual.enabled=true`，需 Java 21+）               |
 
-> Boot 4 把 `spring-boot-starter-web` 改名为 `spring-boot-starter-webmvc`；测试依赖也按技术栈拆开了，
-> 用 `-webmvc-test` 即会自动带进 `spring-boot-starter-test`（已通过 `mvn dependency:tree` 核实），无需重复声明。
+> Boot 3 用 `spring-boot-starter-web` 与 `spring-boot-starter-test`；这两个名字到 Boot 4 会分别改名为
+> `-webmvc` 与按技术栈拆开的 `-webmvc-test`，升级时记得同步换。
 
 ## 目录结构
 
@@ -27,7 +29,7 @@ src/main/java/com/zjc/demo/
 ├── aop/WebLogAspect.java         # Controller 环绕日志切面
 ├── config/
 │   ├── WebConfig.java            # WebMvcConfigurer：跨域 + 拦截器扩展点
-│   └── JacksonConfig.java        # Jackson 3 定制：Long → String
+│   └── JacksonConfig.java        # Jackson 定制：Long → String
 ├── constant/
 │   ├── ApiResponseConstant.java  # 标准响应码枚举（code 即 HTTP 状态码）
 │   ├── ErrorCodeConstant.java    # 错误码契约接口（业务方枚举实现它）
@@ -67,7 +69,7 @@ body」的做法。好处是网关重试、前端拦截器、APM 告警都能按
     "message": "资源不存在",
     "data": null,
     "traceId": "06e9610c586245f3af21807231411a75",
-    "timestamp": 1790761655561
+    "timestamp": "1790761655561"
 }
 ```
 
@@ -154,17 +156,22 @@ grep '06e9610c586245f3af21807231411a75' logs/info/*.log
 **`@Async` 只需三步，缺一不可**：
 
 1. `AsyncConfig` 上的 `@EnableAsync` —— 不加它 `@Async` **静默失效**（同步执行且不报错）；
-2. 注册 `TaskDecorator` Bean —— Spring Boot 的任务执行自动配置会自动收集容器里的
-   `TaskDecorator` 并应用到它创建的执行器上，因此**不必**自己定义 `@Async` 执行器，
-   也不会覆盖 Boot 对虚拟线程等默认配置的适配；
+2. 注册 **唯一一个** `TaskDecorator` Bean —— Spring Boot 的任务执行自动配置会把它应用到
+   它创建的执行器上，因此**不必**自己定义 `@Async` 执行器，也不会覆盖 Boot 对虚拟线程等
+   默认配置的适配。
+   **注意 Boot 3 的限制**：自动配置是用 `ObjectProvider<TaskDecorator>.getIfUnique()` 取值的，
+   容器里出现两个 `TaskDecorator` Bean 时会拿不到唯一实例，结果是**两个都被静默丢弃**
+   （不报错、不打日志，MDC 透传悄悄失效）。模板有「链路透传 + 耗时埋点」两个诉求，
+   因此在 `AsyncConfig` 里用 `CompositeTaskDecorator` 手动合成一个 Bean。
 3. `@Async` 方法写在**另一个 Bean** 里 —— 同���内部自调用绕过代理，异步与透传都不生效且不报错。
 
 **出站调用**由拦截器把 MDC 里的 traceId 写进 `X-Trace-Id` 请求头。闭环关系是：
 下游的 `TraceIdFilter` 正好从同一个头读取并沿用，上下游无需额外约定，链路自动串起来。
 
-依赖 `spring-boot-starter-restclient`，`RestClient.Builder` **由 Boot 自动配置**（原型作用域，
-自带消息转换器、SSL、可观测性），模板不自己造 builder，而是注册一个
-`RestClientCustomizer`——Boot 会把它应用到创建的每个 builder 上，因此业务侧注入即用：
+`RestClient.Builder` **由 Boot 自动配置**（原型作用域，自带消息转换器、SSL、可观测性），
+模板不自己造 builder，而是注册一个 `RestClientCustomizer`——Boot 会把它应用到创建的每个
+builder 上，因此业务侧注入即用。（Boot 3 下该接口在 `org.springframework.boot.web.client` 包，
+Boot 4 挪到了 `org.springframework.boot.restclient`。）
 
 ```java
 
@@ -244,18 +251,19 @@ spring:
         async:
             request-timeout: 30s     # @Async / Callable / DeferredResult / SSE；不配就是永不超时
     http:
-        clients:
+        client:
             connect-timeout: 3s      # 出站建连（RestClient / RestTemplate / WebClient 通用）
             read-timeout: 10s        # 出站读响应；不配 = 无限等待
 ```
 
 三个容易踩的点：
 
-1. **Boot 4 起用复数 `spring.http.clients.*`**，单数 `spring.http.client.*` 已于 4.0 标记废弃
-   （Boot 4.1.1 元数据里带 `replacement` 提示），写错前缀不报错、但也不生效。
+1. **Boot 3 用单数 `spring.http.client.*`**，复数 `spring.http.clients.*` 是 Boot 4 才改的名字
+   （Boot 4 元数据里给单数项带了 `replacement` 提示）。写错前缀不报错、但也不生效，
+   所以 `ProfileConfigTest` 里有断言专门钉着这两个 key。
 2. `server.connection-timeout` 是**通用键，自 Boot 2.1 起按 error 级废弃**，理由是各容器语义不同；
    Tomcat 请写 `server.tomcat.connection-timeout`。
-3. 开了虚拟线程后 `server.tomcat.threads.max` 不再生效（Boot 4 元数据原文：*Doesn't have an
+3. 开了虚拟线程后 `server.tomcat.threads.max` 不再生效（Boot 元数据原文：*Doesn't have an
    effect if virtual threads are enabled*），别再靠调线程数救超时问题。
 
 ### Actuator 监控端点
@@ -325,7 +333,7 @@ mvn -o test -Djacoco.skip=true   # 临时跳过覆盖率统计（排查构建问
 
 | 配置项                                | 说明                                                                |
 |------------------------------------|-------------------------------------------------------------------|
-| `jacoco.version` = `0.8.15`        | JaCoCo 版本必须 ≥ 被测字节码的 class file 版本：Java 25 = 69，0.8.15 是首个完整支持的版本 |
+| `jacoco.version` = `0.8.15`        | JaCoCo 版本必须 ≥ 被测字节码的 class file 版本：Java 21 = 65，0.8.15 是完整支持的版本（升到 JDK 25 = 69 时需重新核对） |
 | `jacoco.minimum-coverage` = `0.80` | 门禁阈值（0.00~1.00）。模板实测为 100%，阈值留 0.80 是给派生项目加代码时的缓冲，不必改插件配置         |
 | 排除 `DemoApplication.class`         | 启动入口类只做 `SpringApplication.run` 转发，覆盖它需要起真容器且无任何业务价值，按业界惯例排除      |
 | `check` 绑定 `verify` 阶段             | `mvn test` 不会被覆盖率卡住，只有 `verify` / `install` / `deploy` 才强制校验      |
@@ -385,7 +393,7 @@ public GroupedOpenApi orderApi() {
 > **版本必须显式锁定，且大版本要跟随 Spring Boot**：springdoc 不在 Boot 的依赖管理（BOM）里，
 > 不写 `<version>` 会直接解析失败；版本选错则**不报编译错误**，只在运行期表现为文档接口 500 或
 > `ClassNotFoundException`，排查成本很高。对照关系是 **springdoc 2.x → Boot 3，3.x → Boot 4**
-> （当前 `springdoc.version=3.1.1`，其内部锁定 Spring Boot 4.1.0）。
+> （当前 `springdoc.version=2.8.9`，其内部锁定 Spring Boot 3.x）。
 > 模板用 `ApiIntegrationTest` 里的两个运行期用例守着这件事。
 >
 > 生产环境请关闭或加鉴权——接口清单属于敏感信息。
@@ -399,11 +407,11 @@ curl http://localhost:8000/hello
 curl http://localhost:8000/swagger-ui/index.html
 ```
 
-> Boot 4 要求 JDK 17+。若终端构建报 `类文件具有错误的版本 61.0, 应为 52.0`，说明当前 `JAVA_HOME`
+> Boot 3 要求 JDK 17+。若终端构建报 `类文件具有错误的版本 61.0, 应为 52.0`，说明当前 `JAVA_HOME`
 > 仍指向 JDK 8，先切过去再执行（构建本身与 IDE 运行是两套 JDK 来源）：
 >
 > ```bash
-> JAVA_HOME="D:/app/Java/jdk-25.0.2" mvn -o clean test   # Windows Git Bash
+> JAVA_HOME="D:/app/Java/jdk-21.0.10" mvn -o clean test   # Windows Git Bash
 > ```
 >
 > 顺带装 agent 可消除 Mockito 自挂载警告：`-XX:+EnableDynamicAgentLoading`。
@@ -444,7 +452,7 @@ git push -u origin xxxxx-mysql
 git switch template && git pull --ff-only && git switch -c feature/your-project
 
 # 或独立新仓库
-git clone --branch template --single-branch <url> your-project && cd your-project && rm -rf .git && git init
+git clone --branch template3 --single-branch <url> your-project && cd your-project && rm -rf .git && git init
 ```
 
 ### 2. 改 Maven 坐标（`pom.xml`）
@@ -456,7 +464,7 @@ git clone --branch template --single-branch <url> your-project && cd your-projec
 <version>0.0.1-SNAPSHOT</version>
 
 <properties>
-<java.version>25</java.version>   <!-- 按需降到 21 / 17 -->
+<java.version>21</java.version>   <!-- Boot 3 支持 17 ~ 25，按需调整 -->
 </properties>
 ```
 
@@ -544,9 +552,10 @@ mvn clean test
 
 ---
 
-## 升级点：升 Spring Boot 版本时要注意什么
+## 升级点：从 Boot 3 升到 Boot 4 时要注意什么
 
-改 `<parent>` 的 `<version>` 一处即可，但要同步Review下面这些 Boot 4 的破坏性变更：
+本分支停在 Boot 3。将来要升 Boot 4，改 `<parent>` 的 `<version>` 一处即可，
+但要同步复核下面这些破坏性变更：
 
 | 主题                | Boot 3.x                                   | Boot 4                                                  |
 |-------------------|--------------------------------------------|---------------------------------------------------------|

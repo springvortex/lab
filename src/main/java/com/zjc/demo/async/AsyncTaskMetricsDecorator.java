@@ -7,21 +7,12 @@ import org.springframework.core.task.TaskDecorator;
 import io.micrometer.core.instrument.MeterRegistry;
 
 /**
- * 给异步任务打耗时埋点的任务装饰器，用来演示「多个 {@link TaskDecorator} 可以共存」
- * （Spring Boot 4.0 新能力）。
+ * 给异步任务打耗时埋点的任务装饰器。
  *
  * <p>
- * <b>Boot 4 之前：</b>容器里出现两个 {@code TaskDecorator} Bean 会直接报错
- * （{@code NoUniqueBeanDefinitionException}），只能自己写一个「组合装饰器」把两个拼起来，
- * 或者干脆放弃其中一个。
- *
- * <p>
- * <b>Boot 4 起：</b>自动配置会收集容器里<b>所有</b> {@code TaskDecorator} Bean
- * （{@code TaskExecutorConfigurations} 用 {@code ObjectProvider.orderedStream()} 取全部，
- * 只有一个就直接用、多个就组装成
- * {@code org.springframework.core.task.support.CompositeTaskDecorator}），
- * 按 {@code @Order} 指定的顺序依次包装任务。于是「链路透传」和「指标埋点」可以各写各的，
- * 互不干扰，也不用修改对方。
+ * 它与 {@link MdcTaskDecorator} 是两个独立的关注点（一个管链路透传、一个管指标埋点），
+ * 由 {@code AsyncConfig} 用 {@code CompositeTaskDecorator} 组装成一个 Bean 后生效
+ * ——Boot 3 下容器里只能有一个 {@code TaskDecorator} Bean，详见 {@code AsyncConfig} 的说明。
  *
  * <p>
  * <b>顺序为什么重要（细节，容易踩）：</b>{@code CompositeTaskDecorator} 是
@@ -35,7 +26,7 @@ import io.micrometer.core.instrument.MeterRegistry;
  * 埋点通常应放最外层，测到端到端耗时。</li>
  * </ul>
  * 本装饰器只读时间、不碰 MDC，因此与 {@link MdcTaskDecorator} 不存在冲突；
- * 在 {@code AsyncConfig} 里给它标了更高的 {@code @Order} 让它成为最外层。
+ * 在 {@code AsyncConfig} 的组合列表里放在最后，让它成为最外层。
  *
  * <p>
  * <b>注意事项：</b>

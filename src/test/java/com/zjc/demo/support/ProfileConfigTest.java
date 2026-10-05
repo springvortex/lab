@@ -66,8 +66,8 @@ class ProfileConfigTest {
      * 三类超时必须真的绑定到值：配了但不生效，比不配更危险（看起来已经防护了）。
      *
      * <p>
-     * 这里同时起到「属性名拼写校验」的作用——Boot 4 起出站超时是复数
-     * {@code spring.http.clients.*}，写成单数不会报错也不会生效。
+     * 这里同时起到「属性名拼写校验」的作用——Boot 3 的出站超时是单数
+     * {@code spring.http.client.*}（Boot 4 起才改成复数），写错不会报错也不会生效。
      */
     @Test
     @DisplayName("超时配置：Tomcat / 异步请求 / 出站客户端均已绑定")
@@ -76,8 +76,8 @@ class ProfileConfigTest {
             assertThat(env.getProperty("server.tomcat.connection-timeout")).isEqualTo("20s");
             assertThat(env.getProperty("server.tomcat.keep-alive-timeout")).isEqualTo("20s");
             assertThat(env.getProperty("spring.mvc.async.request-timeout")).isEqualTo("30s");
-            assertThat(env.getProperty("spring.http.clients.connect-timeout")).isEqualTo("3s");
-            assertThat(env.getProperty("spring.http.clients.read-timeout")).isEqualTo("10s");
+            assertThat(env.getProperty("spring.http.client.connect-timeout")).isEqualTo("3s");
+            assertThat(env.getProperty("spring.http.client.read-timeout")).isEqualTo("10s");
         });
     }
 

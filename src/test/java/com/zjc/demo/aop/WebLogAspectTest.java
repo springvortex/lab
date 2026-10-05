@@ -22,7 +22,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.zjc.demo.exception.BusinessException;
 
-import tools.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * {@link WebLogAspect} 的单元测试。
@@ -49,12 +49,12 @@ class WebLogAspectTest {
     private ProceedingJoinPoint joinPoint;
 
     /**
-     * 初始化切面并注入真实的 JsonMapper（切面靠它序列化入参与返回值）。
+     * 初始化切面并注入真实的 ObjectMapper（切面靠它序列化入参与返回值）。
      */
     @BeforeEach
     void setUp() {
         aspect = new WebLogAspect();
-        ReflectionTestUtils.setField(aspect, "jsonMapper", JsonMapper.builder().build());
+        ReflectionTestUtils.setField(aspect, "objectMapper", new ObjectMapper());
 
         joinPoint = mock(ProceedingJoinPoint.class);
         Signature signature = mock(Signature.class);

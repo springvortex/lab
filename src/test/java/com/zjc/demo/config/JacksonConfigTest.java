@@ -7,9 +7,10 @@ import java.util.Map;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import tools.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * {@link JacksonConfig} 的单元测试。
@@ -24,17 +25,17 @@ import tools.jackson.databind.json.JsonMapper;
 class JacksonConfigTest {
 
     /**
-     * 构造一个只应用了本配置的 JsonMapper。
+     * 构造一个只应用了本配置的 ObjectMapper。
      *
      * @param longToStringEnabled 是否开启 Long 转字符串
-     * @return JsonMapper 实例
+     * @return ObjectMapper 实例
      */
-    private JsonMapper buildMapper(boolean longToStringEnabled) {
+    private ObjectMapper buildMapper(boolean longToStringEnabled) {
         JacksonConfig config = new JacksonConfig();
         ReflectionTestUtils.setField(config, "longToStringEnabled", longToStringEnabled);
 
-        JsonMapper.Builder builder = JsonMapper.builder();
-        config.jsonMapperBuilderCustomizer().customize(builder);
+        Jackson2ObjectMapperBuilder builder = Jackson2ObjectMapperBuilder.json();
+        config.jackson2ObjectMapperBuilderCustomizer().customize(builder);
         return builder.build();
     }
 
@@ -55,8 +56,8 @@ class JacksonConfigTest {
      */
     @Test
     @DisplayName("开启开关：Long / long 均序列化为字符串")
-    void longIsSerializedAsStringWhenEnabled() {
-        JsonMapper mapper = buildMapper(true);
+    void longIsSerializedAsStringWhenEnabled() throws Exception {
+        ObjectMapper mapper = buildMapper(true);
 
         assertThat(mapper.writeValueAsString(payload(1234567890123456789L)))
                 .isEqualTo("{\"id\":\"1234567890123456789\"}");
@@ -67,8 +68,8 @@ class JacksonConfigTest {
      */
     @Test
     @DisplayName("关闭开关：Long 保持裸数字")
-    void longStaysNumericWhenDisabled() {
-        JsonMapper mapper = buildMapper(false);
+    void longStaysNumericWhenDisabled() throws Exception {
+        ObjectMapper mapper = buildMapper(false);
 
         assertThat(mapper.writeValueAsString(payload(123L))).isEqualTo("{\"id\":123}");
     }
@@ -81,7 +82,7 @@ class JacksonConfigTest {
     @Test
     @DisplayName("反序列化：字符串与数字都能读回 Long")
     void deserializationAcceptsBothForms() throws Exception {
-        JsonMapper mapper = buildMapper(true);
+        ObjectMapper mapper = buildMapper(true);
 
         assertThat(mapper.readValue("{\"id\":\"123\"}", Map.class).get("id")).isEqualTo("123");
         assertThat(mapper.readValue("{\"id\":123}", Map.class).get("id")).isEqualTo(123);
@@ -92,8 +93,8 @@ class JacksonConfigTest {
      */
     @Test
     @DisplayName("Integer / String 不受影响")
-    void otherTypesAreNotAffected() {
-        JsonMapper mapper = buildMapper(true);
+    void otherTypesAreNotAffected() throws Exception {
+        ObjectMapper mapper = buildMapper(true);
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("count", 42);
         map.put("name", "abc");

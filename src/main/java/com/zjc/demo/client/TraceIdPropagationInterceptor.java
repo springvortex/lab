@@ -52,7 +52,7 @@ public class TraceIdPropagationInterceptor implements ClientHttpRequestIntercept
             throws IOException {
         String traceId = MDC.get(TraceConstant.MDC_KEY);
         HttpHeaders headers = request.getHeaders();
-        if (traceId != null && !headers.containsHeader(TraceConstant.HEADER_NAME)) {
+        if (traceId != null && !headers.containsKey(TraceConstant.HEADER_NAME)) {
             headers.set(TraceConstant.HEADER_NAME, traceId);
         }
         return execution.execute(request, body);

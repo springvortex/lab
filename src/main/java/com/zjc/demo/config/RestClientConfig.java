@@ -1,6 +1,6 @@
 package com.zjc.demo.config;
 
-import org.springframework.boot.restclient.RestClientCustomizer;
+import org.springframework.boot.web.client.RestClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -10,10 +10,10 @@ import com.zjc.demo.client.TraceIdPropagationInterceptor;
  * {@code RestClient} 配置：让所有出站调用自动带上链路 ID。
  *
  * <p>
- * 引入 {@code spring-boot-starter-restclient} 后，{@code RestClient.Builder} 由 Spring Boot
- * 自动配置（原型作用域），自带消息转换器、SSL、可观测性等默认适配。本类<b>不再自己造 builder</b>，
- * 而是注册 {@link RestClientCustomizer}——Boot 会把容器里的自定义器逐个应用到它创建的
- * 每个 builder 上，因此业务侧注入 {@code RestClient.Builder} 就直接带链路透传，零额外代码。
+ * {@code RestClient.Builder} 由 Spring Boot 自动配置（原型作用域），自带消息转换器、SSL、
+ * 可观测性等默认适配。本类<b>不再自己造 builder</b>，而是注册 {@link RestClientCustomizer}——
+ * Boot 会把容器里的自定义器逐个应用到它创建的每个 builder 上，因此业务侧注入
+ * {@code RestClient.Builder} 就直接带链路透传，零额外代码。
  *
  * <p>
  * <b>用法示例（声明式 HTTP 客户端 / {@code @HttpExchange}）：</b>

@@ -13,7 +13,7 @@ spring:
     async:
       request-timeout: 30s
   http:
-    clients:
+    client:
       connect-timeout: 3s
       read-timeout: 10s
   jackson:

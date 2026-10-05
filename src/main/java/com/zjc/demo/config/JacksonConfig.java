@@ -1,20 +1,19 @@
 package com.zjc.demo.config;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.jackson.autoconfigure.JsonMapperBuilderCustomizer;
+import org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import tools.jackson.databind.module.SimpleModule;
-import tools.jackson.databind.ser.std.ToStringSerializer;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 
 /**
  * Jackson 全局配置。
  *
  * <p>
- * <b>Boot 4 变更：</b>定制接口由 Boot 3 的 {@code Jackson2ObjectMapperBuilderCustomizer}
- * 改为 {@link JsonMapperBuilderCustomizer}，且 JSON 库升级到 Jackson 3（包路径
- * {@code tools.jackson.*}，不再是 {@code com.fasterxml.jackson.*}）。
+ * 定制接口为 {@link Jackson2ObjectMapperBuilderCustomizer}，JSON 库是 Jackson 2
+ * （包路径 {@code com.fasterxml.jackson.*}）。
  *
  * <p>
  * 与时区、日期格式相关的项已在 {@code application.yaml} 里用 {@code spring.jackson.*}
@@ -48,13 +47,13 @@ public class JacksonConfig {
      * @return Jackson 定制器
      */
     @Bean
-    public JsonMapperBuilderCustomizer jsonMapperBuilderCustomizer() {
+    public Jackson2ObjectMapperBuilderCustomizer jackson2ObjectMapperBuilderCustomizer() {
         return builder -> {
             if (longToStringEnabled) {
                 SimpleModule longModule = new SimpleModule("LongToStringModule");
                 longModule.addSerializer(Long.class, ToStringSerializer.instance);
                 longModule.addSerializer(Long.TYPE, ToStringSerializer.instance);
-                builder.addModule(longModule);
+                builder.modules(longModule);
             }
         };
     }
