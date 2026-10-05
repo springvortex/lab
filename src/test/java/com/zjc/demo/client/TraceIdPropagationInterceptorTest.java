@@ -1,17 +1,20 @@
 package com.zjc.demo.client;
 
-import com.zjc.demo.constant.TraceConstant;
 import static org.assertj.core.api.Assertions.assertThat;
+
+import java.net.URI;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
-import java.net.URI;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.mock.http.client.MockClientHttpRequest;
 import org.springframework.mock.http.client.MockClientHttpResponse;
+
+import com.zjc.demo.constant.TraceConstant;
 
 /**
  * {@link TraceIdPropagationInterceptor} 的单元测试。

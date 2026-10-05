@@ -1,13 +1,15 @@
 package com.zjc.demo.client;
 
-import com.zjc.demo.constant.TraceConstant;
-import org.slf4j.MDC;
 import java.io.IOException;
+
+import org.slf4j.MDC;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpRequest;
 import org.springframework.http.client.ClientHttpRequestExecution;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.ClientHttpResponse;
+
+import com.zjc.demo.constant.TraceConstant;
 
 /**
  * 出站请求链路透传：把当前线程 MDC 里的 traceId 写进请求头，交给下游服务继续同一条链路。

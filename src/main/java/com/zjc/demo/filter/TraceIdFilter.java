@@ -1,19 +1,22 @@
 package com.zjc.demo.filter;
 
-import com.zjc.demo.constant.TraceConstant;
-import lombok.extern.slf4j.Slf4j;
-import org.slf4j.MDC;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.UUID;
+
+import org.slf4j.MDC;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
+
+import com.zjc.demo.constant.TraceConstant;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 链路追踪 ID 过滤器：为每次请求生成（或沿用上游下发的）traceId，放入 MDC 并写回响应头。

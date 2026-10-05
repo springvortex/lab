@@ -1,10 +1,12 @@
 package com.zjc.demo.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+
 import java.lang.reflect.Method;
 import java.util.Map;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.servlet.HandlerInterceptor;

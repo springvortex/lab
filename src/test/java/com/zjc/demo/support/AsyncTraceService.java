@@ -1,10 +1,12 @@
 package com.zjc.demo.support;
 
-import com.zjc.demo.constant.TraceConstant;
-import org.slf4j.MDC;
 import java.util.concurrent.CompletableFuture;
+
+import org.slf4j.MDC;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+
+import com.zjc.demo.constant.TraceConstant;
 
 /**
  * 测试专用异步服务，用于验证 {@code @Async} 线程里能否读到请求线程的 traceId。

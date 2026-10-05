@@ -1,13 +1,6 @@
 package com.zjc.demo;
 
-import com.jayway.jsonpath.JsonPath;
-import com.zjc.demo.constant.ApiResponseConstant;
-import com.zjc.demo.constant.TraceConstant;
 import static org.assertj.core.api.Assertions.assertThat;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.slf4j.MDC;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
@@ -17,8 +10,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -30,6 +29,10 @@ import org.springframework.test.web.client.match.MockRestRequestMatchers;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.client.RestClient;
+
+import com.jayway.jsonpath.JsonPath;
+import com.zjc.demo.constant.ApiResponseConstant;
+import com.zjc.demo.constant.TraceConstant;
 
 /**
  * 端到端 MVC 集成测试：从真实 HTTP 请求出发，验证统一响应、异常处理、traceId 链路与跨域。

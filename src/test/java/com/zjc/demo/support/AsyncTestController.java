@@ -1,11 +1,14 @@
 package com.zjc.demo.support;
 
-import com.zjc.demo.web.ApiResponse;
-import jakarta.annotation.Resource;
 import java.util.concurrent.TimeUnit;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.zjc.demo.web.ApiResponse;
+
+import jakarta.annotation.Resource;
 
 /**
  * 测试专用接口，用于验证异步线程的链路透传。

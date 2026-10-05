@@ -1,11 +1,7 @@
 package com.zjc.demo.support;
 
-import com.zjc.demo.constant.ApiResponseConstant;
-import com.zjc.demo.exception.BusinessException;
-import com.zjc.demo.web.ApiResponse;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import java.util.Map;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,6 +10,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+
+import com.zjc.demo.constant.ApiResponseConstant;
+import com.zjc.demo.exception.BusinessException;
+import com.zjc.demo.web.ApiResponse;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 
 /**
  * 测试专用接口，用于从真实 HTTP 链路触发各类异常与正常返回。

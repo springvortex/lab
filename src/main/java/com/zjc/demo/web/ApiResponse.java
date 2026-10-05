@@ -1,15 +1,18 @@
 package com.zjc.demo.web;
 
+import java.io.Serial;
+import java.io.Serializable;
+
+import org.slf4j.MDC;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
 import com.zjc.demo.constant.ApiResponseConstant;
 import com.zjc.demo.constant.ErrorCodeConstant;
 import com.zjc.demo.constant.TraceConstant;
+
 import lombok.Getter;
 import lombok.Setter;
-import org.slf4j.MDC;
-import java.io.Serial;
-import java.io.Serializable;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 
 /**
  * 全局统一接口响应封装，REST Controller 默认返回实体。

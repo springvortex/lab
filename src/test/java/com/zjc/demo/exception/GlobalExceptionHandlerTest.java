@@ -1,18 +1,13 @@
 package com.zjc.demo.exception;
 
-import com.zjc.demo.constant.ApiResponseConstant;
-import com.zjc.demo.support.TestRequest;
-import com.zjc.demo.web.ApiResponse;
 import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.List;
+import java.util.Set;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.ConstraintViolationException;
-import jakarta.validation.Validation;
-import jakarta.validation.Validator;
-import java.util.List;
-import java.util.Set;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -24,6 +19,15 @@ import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+
+import com.zjc.demo.constant.ApiResponseConstant;
+import com.zjc.demo.support.TestRequest;
+import com.zjc.demo.web.ApiResponse;
+
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
 
 /**
  * {@link GlobalExceptionHandler} 的单元测试。

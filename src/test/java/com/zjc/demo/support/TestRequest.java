@@ -1,9 +1,9 @@
 package com.zjc.demo.support;
 
-import lombok.Getter;
-import lombok.Setter;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * 测试专用请求体，用于触发各类参数校验失败场景。

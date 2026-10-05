@@ -1,10 +1,13 @@
 package com.zjc.demo.exception;
 
+import java.io.Serial;
+
+import org.springframework.http.HttpStatus;
+
 import com.zjc.demo.constant.ApiResponseConstant;
 import com.zjc.demo.constant.ErrorCodeConstant;
+
 import lombok.Getter;
-import java.io.Serial;
-import org.springframework.http.HttpStatus;
 
 /**
  * 业务异常，供 Service / Controller 层抛出，由全局异常处理器统一拦截。

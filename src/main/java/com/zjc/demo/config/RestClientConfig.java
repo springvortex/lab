@@ -1,9 +1,10 @@
 package com.zjc.demo.config;
 
-import com.zjc.demo.client.TraceIdPropagationInterceptor;
 import org.springframework.boot.restclient.RestClientCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import com.zjc.demo.client.TraceIdPropagationInterceptor;
 
 /**
  * {@code RestClient} 配置：让所有出站调用自动带上链路 ID。

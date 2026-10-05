@@ -1,7 +1,8 @@
 package com.zjc.demo.service.impl;
 
-import com.zjc.demo.service.HelloService;
 import org.springframework.stereotype.Service;
+
+import com.zjc.demo.service.HelloService;
 
 /**
  * {@link HelloService} 的默认实现；派生新项目时可直接删除。

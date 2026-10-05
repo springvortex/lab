@@ -1,8 +1,7 @@
 package com.zjc.demo.web;
 
-import com.zjc.demo.constant.ApiResponseConstant;
-import com.zjc.demo.constant.TraceConstant;
 import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -10,6 +9,9 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+
+import com.zjc.demo.constant.ApiResponseConstant;
+import com.zjc.demo.constant.TraceConstant;
 
 /**
  * {@link ApiResponse} 静态工厂方法与状态码解析的单元测试。

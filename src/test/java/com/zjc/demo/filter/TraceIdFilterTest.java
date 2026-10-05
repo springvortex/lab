@@ -1,14 +1,17 @@
 package com.zjc.demo.filter;
 
-import com.zjc.demo.constant.TraceConstant;
 import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
-import java.util.concurrent.atomic.AtomicReference;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+
+import com.zjc.demo.constant.TraceConstant;
 
 /**
  * {@link TraceIdFilter} 的单元测试。
