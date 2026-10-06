@@ -61,4 +61,51 @@ class ApiResponseConstantTest {
 		assertThat(errorCode.code()).isEqualTo(409);
 		assertThat(errorCode.message()).isEqualTo("数据冲突");
 	}
+
+	/**
+	 * 每个枚举项都必须带国际化 key，且用「模块.语义」命名。
+	 *
+	 * <p>
+	 * 漏配 key 不会报错，只会让该响应码在所有语言下都用固定中文兜底文案——即国际化对它失效。
+	 * 这条断言把「新增枚举忘了加 key」拦在构建期。
+	 *
+	 * <p>
+	 * key 的实际取词由 {@code MessageUtilsTest#everyEnumMessageKeyResolves} 校验：
+	 * 本类只保证「枚举侧声明了」，那边保证「资源文件里真的有」。
+	 */
+	@Test
+	@DisplayName("所有枚举项都带 response.* 格式的国际化 key")
+	void allEntriesDeclareMessageKey() {
+		for (ApiResponseConstant value : ApiResponseConstant.values()) {
+			assertThat(value.messageKey()).as("枚举 %s 缺少国际化 key", value.name()).isNotBlank()
+					.startsWith("response.");
+		}
+	}
+
+	/**
+	 * 契约接口的 {@code messageKey()} 默认返回 {@code null}，表示「该枚举不使用国际化」。
+	 *
+	 * <p>
+	 * <b>这条默认实现是「旧自定义枚举零改动兼容」的关键：</b>业务方现有枚举不覆写该方法时，
+	 * 框架会回落到 {@code message()} 的固定文案，行为与引入国际化之前完全一致。
+	 * 若有人把默认值改成 {@code code()} 的字符串形式，资源文件里就得写 {@code 404=资源不存在}
+	 * 这类键，而多个枚举共用一个状态码时会互相覆盖（400 就有三项），语义直接串掉。
+	 */
+	@Test
+	@DisplayName("契约接口的 messageKey 默认返回 null")
+	void defaultMessageKeyIsNull() {
+		ErrorCodeConstant withoutI18n = new ErrorCodeConstant() {
+			@Override
+			public int code() {
+				return 400;
+			}
+
+			@Override
+			public String message() {
+				return "未启用国际化的提示";
+			}
+		};
+
+		assertThat(withoutI18n.messageKey()).as("默认实现必须返回 null（不使用国际化）").isNull();
+	}
 }

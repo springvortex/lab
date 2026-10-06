@@ -21,6 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.zjc.demo.constant.ApiResponseConstant;
+import com.zjc.demo.util.MessageUtils;
 import com.zjc.demo.web.ApiResponse;
 
 import jakarta.validation.ConstraintViolationException;
@@ -36,6 +37,18 @@ import lombok.extern.slf4j.Slf4j;
  * <b>HTTP 状态码约定：</b>响应体里的 {@code code} 即 HTTP 状态码，本类一律通过
  * {@link ApiResponse#toResponseEntity()} 返回，使 400 / 401 / 404 / 405 / 500
  * 等状态码如实透出给调用方、网关与 APM，而不是统一 200。响应体的 {@code code} 与 HTTP 状态码必须保持一致。
+ *
+ * <p>
+ * <b>国际化约定（哪些文案会多语言、哪些不会）：</b>
+ * <ul>
+ * <li><b>会</b>：模板自带的固定文案（{@link ApiResponseConstant} 枚举项、缺少参数、
+ * 请求方法不支持等）——按 {@code Accept-Language} 取词，见 {@code config/I18nConfig}；</li>
+ * <li><b>不会</b>：参数校验失败时透传的 {@code defaultMessage}。它来自业务在
+ * {@code @NotBlank(message = "...")} 里自己写的文案，要不要多语言由业务决定——
+ * 把 {@code message} 写成 key，再用 {@code MessageUtils} 取词，本类无需改动；</li>
+ * <li><b>不会</b>：Jackson 解析错误、框架 {@code detail} 等技术性描述，属诊断信息，
+ * 翻译会丢失排查线索。</li>
+ * </ul>
  *
  * <p>
  * <b>处理不到的场景（重要）：</b>
@@ -63,6 +76,19 @@ public class GlobalExceptionHandler {
 	private static final String ERROR_DELIMITER = "; ";
 
 	/**
+	 * 406 响应的落回文案。
+	 *
+	 * <p>
+	 * {@link ApiResponseConstant} 里没有 406 对应的枚举项，因此不能从枚举取；这里给一份固定文案，
+	 * 供国际化资源缺失或容器未就绪（纯单元测试）时回落。正常请求下走
+	 * {@code response.not-acceptable} 的多语言文案。
+	 *
+	 * <p>
+	 * 与 {@link #MISSING_PARAMETER_FALLBACK} 同理：这里是<b>兜底</b>，最终文案由资源文件决定。
+	 */
+	private static final String DEFAULT_NOT_ACCEPTABLE_MESSAGE = "无法产出客户端要求的响应类型";
+
+	/**
 	 * 不需要记录日志的静态资源路径名单。
 	 *
 	 * <p>
@@ -81,6 +107,16 @@ public class GlobalExceptionHandler {
 			"apple-touch-icon.png",
 			// 旧版 iOS 的兼容写法
 			"apple-touch-icon-precomposed.png" };
+
+	/**
+	 * 缺少必填参数的落回文案模板。
+	 *
+	 * <p>
+	 * 与 {@link #DEFAULT_NOT_ACCEPTABLE_MESSAGE} 一样，只是资源文件缺 key 时的兜底；
+	 * 正常请求下文案来自 {@code request.missing-parameter}，参数名由占位符填充。
+	 * 提出来是为了避免同一句中文在方法与文档里各写一遍。
+	 */
+	private static final String MISSING_PARAMETER_FALLBACK = "缺少必填参数: ";
 
 	/**
 	 * 判断资源路径是否属于「不记日志」的名单。
@@ -199,12 +235,16 @@ public class GlobalExceptionHandler {
 	/**
 	 * 缺少必填的 {@code @RequestParam}。
 	 *
+	 * <p>
+	 * 提示文案走国际化，参数名作为占位符填充，因此各语言下参数名都保持原样。
+	 *
 	 * @param e 缺少参数异常
 	 * @return 400 响应，提示缺少的参数名
 	 */
 	@ExceptionHandler(MissingServletRequestParameterException.class)
 	public ResponseEntity<ApiResponse<Void>> handleMissingParam(MissingServletRequestParameterException e) {
-		String message = "缺少必填参数: " + e.getParameterName();
+		String message = MessageUtils.getMessageOrDefault("request.missing-parameter",
+				MISSING_PARAMETER_FALLBACK + e.getParameterName(), new Object[] { e.getParameterName() }, null);
 		log.warn(message);
 		return ApiResponse.<Void>failure(ApiResponseConstant.PARAM_INVALID.code(), message).toResponseEntity();
 	}
@@ -215,13 +255,20 @@ public class GlobalExceptionHandler {
 	 * <p>
 	 * 异常消息非空时透传 {@code e.getMessage()}（如 JSON 解析失败的具体位置）， 消息为空时回退到默认提示。
 	 *
+	 * <p>
+	 * <b>透传的消息不参与国际化</b>：它由 Jackson 等底层解析器生成，本身就是英文技术细节，
+	 * 且对排查问题有价值，翻译反而会丢失信息。只有「回退到默认提示」这一条分支走多语言。
+	 *
 	 * @param e 消息解析异常
 	 * @return 400 响应，提示请求体格式错误
 	 */
 	@ExceptionHandler(HttpMessageNotReadableException.class)
 	public ResponseEntity<ApiResponse<Void>> handleNotReadable(HttpMessageNotReadableException e) {
 		log.warn("请求体解析失败: {}", e.getMessage());
-		String message = e.getMessage() != null ? e.getMessage() : ApiResponseConstant.BAD_REQUEST.message();
+		// 取词失败（容器未就绪 / 资源漏配）时回落枚举固定文案，规则见 MessageUtils#getMessageOrDefault
+		String message = e.getMessage() != null ? e.getMessage()
+				: MessageUtils.getMessageOrDefault(ApiResponseConstant.BAD_REQUEST.messageKey(),
+						ApiResponseConstant.BAD_REQUEST.message(), null);
 		return ApiResponse.<Void>failure(ApiResponseConstant.BAD_REQUEST.code(), message).toResponseEntity();
 	}
 
@@ -240,13 +287,20 @@ public class GlobalExceptionHandler {
 	/**
 	 * 客户端要求的响应类型无法产出（Accept 头不匹配）。
 	 *
+	 * <p>
+	 * 注意本方法<b>必须自行指定文案</b>：{@link ApiResponseConstant} 里没有 406 对应的枚举项，
+	 * 因此不能像其他处理器那样直接 {@code failure(枚举)}。文案走国际化 key
+	 * {@code response.not-acceptable}。
+	 *
 	 * @param e 媒体类型异常
 	 * @return 406 响应
 	 */
 	@ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
 	public ResponseEntity<ApiResponse<Void>> handleMediaTypeNotAcceptable(HttpMediaTypeNotAcceptableException e) {
 		log.warn("无法产出客户端要求的响应类型: {}", e.getMessage());
-		return ApiResponse.<Void>failure(HttpStatus.NOT_ACCEPTABLE, "无法产出客户端要求的响应类型").toResponseEntity();
+		// 406 在 ApiResponseConstant 里没有对应枚举项，回落文案就地给出
+		String message = MessageUtils.getMessageOrDefault("response.not-acceptable", DEFAULT_NOT_ACCEPTABLE_MESSAGE, null);
+		return ApiResponse.<Void>failure(HttpStatus.NOT_ACCEPTABLE, message).toResponseEntity();
 	}
 
 	/**
@@ -273,14 +327,21 @@ public class GlobalExceptionHandler {
 	/**
 	 * 请求方法不支持（如 POST 访问了 GET 接口）。
 	 *
+	 * <p>
+	 * 提示文案由枚举的 {@code messageKey} 取词、方法名作为 {@code {0}} 占位符填充
+	 * （中文「POST 方法不支持」/ 英文「POST method is not supported」），
+	 * 避免用字符串拼接把语序写死在代码里。
+	 *
 	 * @param e 方法不支持异常
 	 * @return 405 响应，提示不支持的请求方法
 	 */
 	@ExceptionHandler(HttpRequestMethodNotSupportedException.class)
 	public ResponseEntity<ApiResponse<Void>> handleMethodNotSupported(HttpRequestMethodNotSupportedException e) {
 		log.warn("不支持的请求方法: {}", e.getMethod());
-		return ApiResponse.<Void>failure(ApiResponseConstant.METHOD_NOT_ALLOWED.code(),
-				ApiResponseConstant.METHOD_NOT_ALLOWED.message() + ": " + e.getMethod()).toResponseEntity();
+		// 带占位符取词：取到词时填充方法名，取不到时回落枚举固定文案
+		String message = MessageUtils.getMessageOrDefault(ApiResponseConstant.METHOD_NOT_ALLOWED.messageKey(),
+				ApiResponseConstant.METHOD_NOT_ALLOWED.message(), new Object[] { e.getMethod() }, null);
+		return ApiResponse.<Void>failure(ApiResponseConstant.METHOD_NOT_ALLOWED.code(), message).toResponseEntity();
 	}
 
 	/**
@@ -313,6 +374,11 @@ public class GlobalExceptionHandler {
 	 * 注意本方法<b>不会</b>抢走更具体处理器的活：{@code NoResourceFoundException}、
 	 * {@code HttpRequestMethodNotSupportedException} 等都有各自的
 	 * {@code @ExceptionHandler}，Spring 优先选最具体的匹配。
+	 *
+	 * <p>
+	 * <b>国际化范围：</b>只有「回落到 {@link ApiResponseConstant#INTERNAL_ERROR}」这一条分支
+	 * 走多语言；4xx 分支透传的是框架给的 {@code detail}（如 {@code "Invalid API version: 2"}
+	 * 这类技术描述），属诊断信息，翻译会丢失关键线索，故保持原样。
 	 *
 	 * @param e 带状态码的框架异常
 	 * @return 与异常状态码一致的响应

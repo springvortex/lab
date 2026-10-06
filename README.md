@@ -14,6 +14,7 @@
 | AOP         | `spring-boot-starter-aspectj`                                                 |
 | 测试          | `spring-boot-starter-webmvc-test`（JUnit 6 / AssertJ 3 / Mockito 5）            |
 | 工具          | Lombok 1.18.x、`spring-boot-devtools`（optional）                                |
+| 国际化         | `MessageSource` + `AcceptHeaderLocaleResolver`（**按 `Accept-Language` 切换文案**） |
 | 并发          | 虚拟线程，**默认开启**（`spring.threads.virtual.enabled=true`，需 Java 21+）               |
 
 > Boot 4 把 `spring-boot-starter-web` 改名为 `spring-boot-starter-webmvc`；测试依赖也按技术栈拆开了，
@@ -27,6 +28,7 @@ src/main/java/com/zjc/demo/
 ├── aop/WebLogAspect.java         # Controller 环绕日志切面
 ├── config/
 │   ├── WebConfig.java            # WebMvcConfigurer：跨域 + 拦截器扩展点
+│   ├── I18nConfig.java           # 国际化：MessageSource + LocaleResolver（语言清单在此）
 │   └── JacksonConfig.java        # Jackson 3 定制：Long → String
 ├── constant/
 │   ├── ApiResponseConstant.java  # 标准响应码枚举（code 即 HTTP 状态码）
@@ -36,12 +38,17 @@ src/main/java/com/zjc/demo/
 │   ├── BusinessException.java    # 业务异常（code 即 HTTP 状态码）
 │   └── GlobalExceptionHandler.java  # 全局异常处理（@RestControllerAdvice）
 ├── filter/TraceIdFilter.java     # traceId 生成/沿用 + 写入 MDC
+├── util/MessageUtils.java        # 国际化取词工具（业务取多语言文案的唯一入口）
 ├── web/ApiResponse.java          # 统一响应封装，可 toResponseEntity() 带状态码返回
 ├── controller/HelloController.java  # 示例，派生时可删
 └── service/HelloService(+Impl)      # 示例，派生时可删
 src/main/resources/
 ├── application.yaml              # 主配置（profile 在此激活）
 ├── config/application-pub.yaml   # pub 附加 profile：公共配置（超时 / 跨域 / Jackson / Actuator / springdoc）
+├── config/application-i18n.yaml  # i18n 附加 profile：国际化配置（资源基名 / 编码 / 兜底策略 / 语言解析）
+├── i18n/messages.properties      # 国际化基名文件（所有语言的最终兜底）
+├── i18n/messages_zh.properties   # 简体中文（默认语言，见 app.i18n.default-locale）
+├── i18n/messages_en.properties   # 英文
 └── logback-spring.xml            # 日志（按级别分文件 + 异步 + 180 天滚动 + 生产落控制台）
 
 LICENSE                           # MIT，派生新项目时记得替换版权持有人
@@ -53,6 +60,7 @@ LICENSE                           # MIT，派生新项目时记得替换版权�
 |------------------------------------|-----------------------------------------|
 | `application.yaml`                 | 端口、应用名、profile 激活（`active` + `include`） |
 | `application-pub.yaml`             | 与环境无关的公共项，被所有环境 `include` 叠加            |
+| `application-i18n.yaml`            | 国际化项（`spring.messages.*` + `spring.web.locale-resolver`），同样由 `include` 叠加 |
 | `application-{dev,test,prod}.yaml` | **只放差异**；实测优先级高于 `application-pub.yaml` |
 
 ### 响应约定：code 即 HTTP 状态码
@@ -86,6 +94,149 @@ body」的做法。好处是网关重试、前端拦截器、APM 告警都能按
   字段承载业务码，**不要**让 `code` 脱离 HTTP 语义。
 - Controller 正常返回时无需特殊处理，直接返回 `ApiResponse` 即 200；异常处理器里统一调用
   `ApiResponse.failure(...).toResponseEntity()` 携带状态码。
+
+### 国际化：文案跟随 `Accept-Language` 自动切换
+
+**以前 / 现在。** 以前所有文案都硬编码在 Java 里（`ApiResponseConstant` 的构造参数），一个接口
+只能返回中文；现在同一份代码，客户端发 `Accept-Language: en-US` 就返回英文，业务代码一行都不用改：
+
+```bash
+curl -H "Accept-Language: zh-CN" localhost:8000/hello
+# {"success":true,"code":200,"message":"操作成功",...}
+
+curl -H "Accept-Language: en-US" localhost:8000/hello
+# {"success":true,"code":200,"message":"Success",...}
+```
+
+异常响应同样会切：
+
+```bash
+curl -H "Accept-Language: en-US" localhost:8000/not-exist
+# {"success":false,"code":404,"message":"Resource not found",...}
+```
+
+**为什么用请求头而不是 URL 参数。** `Accept-Language` 是 HTTP 标准头，浏览器与各类 HTTP 客户端
+自动携带，服务端不需要额外约定参数、URL 结构也不用改。需要显式指定时，前端自行设置该头即可。
+
+**语言清单与匹配规则**（`config/I18nConfig`）：
+
+| 请求头 | 结果 |
+|-----|------|
+| `zh-CN` / `zh` / `zh-Hans` | 中文 |
+| `en-US` / `en-GB` / `en` | 英文 |
+| 不带头 / 头非法 / 不支持的语言（如 `fr-FR`） | **回落默认语言中文** |
+
+> ⚠️ **两个必须写语言级的坑（都已实测）。**
+>
+> 1. `I18nConfig.SUPPORTED_LOCALES` 里的条目必须是**语言级**（`Locale.ENGLISH` / `Locale.CHINESE`），
+>    **不能写国家/地区级**（`Locale.US` / `Locale.SIMPLIFIED_CHINESE`）。Spring 的
+>    `AcceptHeaderLocaleResolver` 在找不到精确匹配时，只会用「语言相同且 country 为空」的清单项兜底；
+>    清单里写 `Locale.US` 时 `en-GB` 会**静默回落默认语言**，全程无日志。
+> 2. 资源文件同理用语言级命名 —— `messages_en.properties` / `messages_zh.properties`，
+>    **不是** `messages_en_US.properties`。`ResourceBundle` 的查找链是「精确 → 语言 → 基名」，
+>    语言级文件能一次覆盖该语言的所有区域变体。
+>
+> 两边粒度必须一致，否则会出现「解析器归一到 `en`、却没有 `messages_en.properties`」的空转。
+> `ApiIntegrationTest.LanguageNegotiation` 里有专门守卫第 1 条的用例。
+>
+> 之所以要求**每一项**都语言级（而不只是非默认项）：默认语言是可配置的，今天默认中文、
+> 明天改成英文，中文就成了「非默认语言」——若它带 country，`zh-TW` 之类区域变体会静默回落。
+> 全部语言级，默认值才能随便换。
+>
+> 另外：`AcceptHeaderLocaleResolver` **默认只支持 `Locale.getDefault()` 一种语言**，也就是
+> 「机器中文 → 英文请求也返回中文」且不报错。`I18nConfig` 显式调用 `setSupportedLocales`
+> 就是为了堵这个静默失效，**不要**删掉那行。
+
+**改默认语言**：改一行配置即可，不用动 Java 代码（`config/application-i18n.yaml`）：
+
+```yaml
+app:
+  i18n:
+    default-locale: zh-CN   # 改成 en 即为英文默认
+```
+
+`zh-CN` / `zh` / `zh_CN` 写法等价，`en-US` / `en-GB` 也会归一到英文。
+配成清单外的语言（如 `fr-FR`）会**在启动时直接报错**并列出可用值，绝不静默回落。
+
+> ⚠️ 注意区分：`spring.messages.*` 那几项在本模板里**不生效**（`I18nConfig` 自定义了
+> `messageSource` Bean，Boot 自动配置退避），它们只是给人看的说明。真正会读的只有
+> 上面这个 `app.i18n.default-locale`。改资源目录则要动 `I18nConfig#setBasenames` 的代码。
+
+**文案怎么放进资源文件**（`src/main/resources/i18n/messages*.properties`）：
+
+key 按「模块.语义」分三组：
+
+| 前缀        | 用途                                              | 会上响应体吗 |
+|-----------|-------------------------------------------------|--------|
+| `response.` | 统一响应码文案（`ApiResponseConstant` 各项、406 等）          | 会      |
+| `request.`  | 请求参数相关提示（如缺少必填参数）                               | 会      |
+| `error.`    | **开发期错误**：工具类私有构造器被反射调用时抛出的提示，属「写错了才看得到」的开发者文案 | 不会     |
+
+```properties
+# key 按「模块.语义」命名，占位符用 {0} {1}
+response.not-found=资源不存在
+response.method-not-allowed={0} 方法不支持
+request.missing-parameter=缺少必填参数: {0}
+error.utility-class-instantiation=工具类禁止实例化
+```
+
+```properties
+# i18n/messages_en.properties —— key 集合必须与基名文件完全一致
+response.not-found=Resource not found
+response.method-not-allowed={0} method is not supported
+request.missing-parameter=Missing required parameter: {0}
+error.utility-class-instantiation=Utility class must not be instantiated
+```
+
+> **`error.*` 为什么也走资源文件？** 这些文案不会出现在 HTTP 响应里（抛异常的位置在对象构造期），
+> 放进资源文件纯粹是为了「所有面向人的字符串只有一处出处」。硬编码在 Java 里时，
+> 同一句「工具类禁止实例化」会在 `MessageUtils` 与 `TraceConstant` 各写一遍，改一处漏一处。
+> 取词用 `MessageUtils.getMessageOrDefault(key, 固定中文, null)`：容器未就绪时自动回落固定文案，
+> 因此纯单元测试也不会拿到 key 本身。
+
+**三层兜底**，任一层缺失都不会把接口打挂：
+
+| 情况 | 结果 |
+|----|------|
+| 当前语言缺这个 key | 回落基名文件 `i18n/messages.properties`（即中文） |
+| 所有文件都缺这个 key | 返回 **key 本身**（`useCodeAsDefaultMessage=true`），响应里直接看出漏了哪个 |
+| 枚举未配 `messageKey`（`null`） | 用枚举自带的固定文案，**旧自定义枚举零改动可用** |
+
+**业务侧怎么用**。三种写法按场景选：
+
+```java
+// 1. 抛业务异常：用枚举构造，文案自动跟随请求语言
+throw new BusinessException(ApiResponseConstant.NOT_FOUND);
+throw new BusinessException(UserErrorCode.USER_DISABLED);   // 自定义枚举，同样支持
+
+// 2. 自己写业务文案：注解里写 key，取值时用 MessageUtils
+throw new BusinessException(MessageUtils.getMessage("order.not-enough-stock", skuId));
+
+// 3. 非 HTTP 上下文（定时任务、MQ 消费）要指定语言，因为那里没有请求头
+String msg = MessageUtils.getMessage("mail.subject", Locale.ENGLISH);
+```
+
+**哪些文案不参与国际化**（刻意如此，不是遗漏）：
+
+- 参数校验失败透传的 `@NotBlank(message = "...")` ——文案由业务自己写，要不要翻译由业务决定；
+- Jackson 解析错误、框架 `detail` 等技术性描述——属诊断信息，翻译会丢失排查线索；
+- 日志里的告警文案（`log.warn("...")`）——日志是给运维看的，跟随请求语言反而会污染检索；
+- `OpenApiConfig` 里的 Swagger UI 展示文案——文档元信息，不随请求变化。
+
+> 另有一类**反过来**的情况：`error.*` 前缀的「开发期错误」文案**放进了资源文件**，
+> 但永远不会出现在响应体里（它们是构造器抛出的开发者提示）。放进去是为了「一处定义」，
+> 不是为了让它们多语言——参见上一节的说明。
+
+**新增一门语言要改三处**：加一份 `i18n/messages_<语言>.properties`（**复制基名文件再翻译，
+不要删减 key**）、把该语言加进 `I18nConfig.SUPPORTED_LOCALES`（**用语言级，不要写 `Locale.US`**）、
+在本文的规则表里补一行。三处缺一不可，且各有一道测试兜住（**只切换默认语言不用改这三处**，
+改 `app.i18n.default-locale` 即可）：
+
+| 漏了哪一处 | 后果 | 守卫测试 |
+|-------|------|------|
+| 资源文件 | 该语言下所有文案回落中文，响应 200 但语言全错 | `MessageUtilsTest#allBundlesShareSameKeys` |
+| `SUPPORTED_LOCALES` | 该语言请求被解析器判为「不支持」，回落默认语言 | `I18nConfigTest#resolverIsPopulated` |
+| 清单写成国家/地区级 | 该语言的区域变体（`en-GB`…）静默回落默认语言 | `I18nConfigTest#nonDefaultEntriesAreLanguageLevel` |
 
 ### 链路追踪：traceId
 
@@ -308,7 +459,7 @@ javadoc -Xdoclint:all,-missing -quiet -encoding UTF-8 -charset UTF-8 \
 
 ### 测试与覆盖率（JaCoCo）
 
-模板自带一套可运行的测试与覆盖率门禁，当前状态：**105 个用例全绿，行 / 分支覆盖率 100%**。
+模板自带一套可运行的测试与覆盖率门禁，当前状态：**171 个用例全绿，行 / 分支覆盖率 100%**。
 
 **为什么引入 JaCoCo：**模板是派生项目的基线，它的正确性只能靠测试守住。而「测试写没写全」
 不能靠肉眼看——`jacoco:check` 把覆盖率变成构建门禁，漏测会直接让 `mvn verify` 失败。
@@ -335,8 +486,31 @@ mvn -o test -Djacoco.skip=true   # 临时跳过覆盖率统计（排查构建问
 | 层次       | 位置                      | 职责                                                             |
 |----------|-------------------------|----------------------------------------------------------------|
 | 单元测试     | 与被测类同包                  | 边界值、防御分支、异常兜底。例如 `ApiResponseTest` 覆盖 `code` 为 `null` / 非法值的兜底 |
-| MVC 集成测试 | `ApiIntegrationTest`    | 真实 HTTP 链路：状态码是否如实透出、异常是否真被路由到处理器、traceId 是否贯通、跨域是否生效          |
+| MVC 集成测试 | `ApiIntegrationTest`    | 真实 HTTP 链路：状态码是否如实透出、异常是否真被路由到处理器、traceId 是否贯通、跨域是否生效、**语言协商是否真的切过去** |
 | 测试专用接口   | `src/test/.../support/` | `ExceptionTestController` 由组件扫描带入测试上下文，用来触发各类异常；**不会打进生产包**    |
+
+> **测试类的包结构必须与主代码一一对应。** `src/test/java` 下**没有**通用归置目录：
+> `config.I18nConfig` 对应 `config.I18nConfigTest`、`async.MdcTaskDecorator` 对应
+> `async.MdcTaskDecoratorTest`，层级完全一致。这样「某个类有没有测试」看目录即可判断，
+> 也不用在 IDE 里靠搜索跳转。
+>
+> 唯一的例外是 `support/`：它放的是**测试专用**的接口与桩（`ExceptionTestController`、
+> `AsyncTestController`、`ProfileConfigTest`、`TestErrorCodeConstant` 等），
+> 在主代码里没有对应物，因此单独成包。
+
+> **两条与国际化相关的测试注意点（都是踩过的坑）：**
+>
+> 1. **纯单元测试不要依赖 Spring 容器已就绪。** `MessageUtils` 的消息源是静态回填的，
+>    不起容器的测试类（如 `ApiResponseTest`）里它可能是空的。若响应体直接吐 message key，
+>    就说明回落链断了——`ApiResponse` 已统一走 `MessageUtils.getMessageOrDefault(...)`，
+>    取不到词时回落枚举固定文案。`ApiResponseTest#fallsBackToEnumMessageWithoutContainer`
+>    钉死了这条，也保证用例**可以单独运行**（早期版本必须在一堆测试之后跑才绿）。
+> 2. **测试断言别断言中文以外的东西**：`UnsupportedOperationException` 这类消息断言只验类型，
+>    不验文案——中文文案受源文件与终端编码影响，断言它容易「本机绿、别人红」。
+>
+> 另外，`config.I18nConfigTest` 与 `util.MessageUtilsTest` 是**刻意分开**的：
+> 前者守「配置装配对不对」（清单有没有装进 `LocaleResolver`、编码与兜底开关、清单与资源文件一一对应），
+> 后者守「按 key + 语言取到的文案对不对」。混在一起时，国际化一旦失效很难判断是配置没生效还是取词写错了。
 
 两条容易踩的坑，本模板已经用测试钉死：
 
@@ -476,16 +650,18 @@ IDE 的「Refactor → Rename」只覆盖 1/2/3，**4 和 5 必须手动改**。
 
 ### 4. 调整 profile
 
-`application.yaml` 里现在是硬编码的 `active: dev` + `include: pub`。两者分工不同，别混淆：
+`application.yaml` 里现在是硬编码的 `active: dev` + `include: [pub, cors, i18n]`。两者分工不同，别混淆：
 
 - **`active`（互斥，选一个）**：环境维度。`dev` / `test` / `prod`，同一时刻只有一个生效。
 - **`include`（叠加，可多个）**：横切维度。`pub` 是「与环境无关的公共配置」——虚拟线程、
-  Jackson、Actuator 这些在哪套环境都一样，因此单独成文件并被所有环境包含。
+  Jackson、Actuator 这些在哪套环境都一样，因此单独成文件并被所有环境包含。`i18n` 同理，
+  只装国际化那几项（`spring.messages.*` + `spring.web.locale-resolver`），与语言资源文件
+  `i18n/messages*.properties` 放在一起，改语言相关只动这一处。
   这是 `include` 的典型用法：把公共项从各环境文件里抽出来，避免 `application-dev.yaml`
   和 `application-prod.yaml` 各抄一份。
-- **已实测的覆盖关系**：`active: prod` + `include: pub` 时 `activeProfiles` 顺序是
-  `[pub, prod]`，**后者优先**，即 `application-prod.yaml` 覆盖 `application-pub.yaml`。
-  所以同一个 key 只在 `pub` 里写一次，环境文件里只写差异——比如 `springdoc.*` 只在 `pub`
+- **已实测的覆盖关系**：`active: prod` + `include: [pub, cors]` 时 `activeProfiles` 顺序是
+  `[pub, cors, prod]`，**后者优先**，即 `application-prod.yaml` 覆盖前面所有附加 profile。
+  所以同一个 key 只在附加 profile 里写一次，环境文件里只写差异——比如 `springdoc.*` 只在 `pub`
   定义一次（默认开启），`application-prod.yaml` 里只留「关闭」这三条覆盖，dev / test 不用再抄一遍。
 
 新项目按自己的环境拆分：
@@ -500,13 +676,25 @@ spring:
 
 - `application.yaml` 只放主配置与 profile 激活；
 - `application-dev.yaml` / `application-test.yaml` / `application-prod.yaml` 放环境差异；
-- 与环境无关的公共项放 `config/application-pub.yaml` 这类附加 profile，用 `include` 叠加；
+- 与环境无关的公共项放 `config/application-pub.yaml` 这类附加 profile，用 `include` 叠加
+  （`config/application-i18n.yaml` 就是按同一套路拆出来的国际化小 profile）；
 - 敏感值一律走环境变量占位 `${DB_PASSWORD:}`，**不要写进配置文件**；
 - 运行时覆盖优先级最高：`java -jar app.jar --spring.profiles.active=prod`。
 
 > 上面示例里的 `@activatedProperties@` 是 Maven 资源过滤占位符，要在 `pom.xml` 的 `<build><resources>`
 > 里对 `application.yaml` 开启 `<filtering>true</filtering>` 才会被替换。模板没有开这个开关，
 > 默认走「硬编码 `active: dev` + 部署时用命令行覆盖」的方式。
+
+**国际化配置单独成一个 `i18n` profile。** 支持哪些语言是**编译期常量**，写在 `config/I18nConfig`
+的 `SUPPORTED_LOCALES` 里；**用哪一门语言兜底则是配置**，写在 `config/application-i18n.yaml`
+的 `app.i18n.default-locale`（用 `include: i18n` 叠加），改一行就能切换，不必动 Java。
+`spring.messages.*`（资源文件基名、编码、兜底策略）同样放这个文件，但它们是**给人看的说明**——
+`I18nConfig` 自定义了 `messageSource` Bean，Boot 自动配置退避，那几项并不生效；
+真要改资源目录得动 `I18nConfig#setBasenames` 的代码。资源文件放 `src/main/resources/i18n/`。
+两边必须**粒度一致**（都用语言级），否则会出现
+「解析器归一到 `en`、但没有 `messages_en.properties`」的空转——详见前文
+[国际化](#国际化文案跟随-accept-language-自动切换)一节的实测红线。派生项目若只想保留一种语言，
+删掉 `i18n/messages_en.properties` 并把 `SUPPORTED_LOCALES` 收敛为一个即可。
 
 ### 5. 删除示例文件
 
@@ -517,13 +705,14 @@ src/main/java/com/zjc/demo/controller/HelloController.java
 src/main/java/com/zjc/demo/service/HelloService.java
 src/main/java/com/zjc/demo/service/impl/HelloServiceImpl.java
 src/main/resources/static/favicon.ico          # 可选，随手换自己的图标
-src/main/resources/config/application-pub.yaml # 公共配置占位，不需要就删，同时去掉 include: pub
+src/main/resources/config/application-pub.yaml # 公共配置占位，不需要就删，同时去掉 include 里的 pub
+src/main/resources/config/application-i18n.yaml # 国际化配置，不需要就删，同时去掉 include 里的 i18n
 ```
 
 **保留**（这些是基础设施，不是示例）：
 
 ```
-DemoApplication.java / aop / constant / exception / web / DemoApplicationTests.java / logback-spring.xml
+DemoApplication.java / aop / constant / exception / web / util / config / DemoApplicationTests.java / logback-spring.xml
 ```
 
 ### 6. 自检

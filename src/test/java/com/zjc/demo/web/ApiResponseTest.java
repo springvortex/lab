@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 
 import com.zjc.demo.constant.ApiResponseConstant;
 import com.zjc.demo.constant.TraceConstant;
+import com.zjc.demo.support.TestErrorCodeConstant;
 
 /**
  * {@link ApiResponse} 静态工厂方法与状态码解析的单元测试。
@@ -237,6 +238,55 @@ class ApiResponseTest {
 
 			assertThat(response.getCode()).isEqualTo(415);
 			assertThat(response.getMessage()).isEqualTo("不支持的请求体类型");
+		}
+
+		/**
+		 * {@code failure(ErrorCodeConstant)} 支持业务自定义枚举。
+		 *
+		 * <p>
+		 * 用测试枚举验证两条分支：覆写了 {@code messageKey()} 的（走国际化）与未覆写的
+		 * （{@code messageKey()} 为 {@code null}，直接用固定文案）。
+		 */
+		@Test
+		void failureWithCustomErrorCodeEnum() {
+			ApiResponse<Void> localized = ApiResponse.<Void>failure(TestErrorCodeConstant.USER_NOT_FOUND);
+			assertThat(localized.getCode()).isEqualTo(404);
+			assertThat(localized.isSuccess()).isFalse();
+
+			ApiResponse<Void> plain = ApiResponse.<Void>failure(TestErrorCodeConstant.STOCK_NOT_ENOUGH);
+			assertThat(plain.getCode()).isEqualTo(409);
+			assertThat(plain.getMessage()).isEqualTo("库存不足");
+		}
+
+		/**
+		 * <b>无 Spring 容器时也必须给出完整文案，不能把 message key 漏到响应体里。</b>
+		 *
+		 * <p>
+		 * 本类是不起容器的纯单元测试，{@code MessageUtils} 的静态消息源可能尚未被
+		 * {@code I18nConfig} 回填。此时若不做回落，响应体的 {@code message} 会变成
+		 * {@code response.not-found} 这样的标识符——调用方看不懂，排查时也容易误判成配置错误。
+		 *
+		 * <p>
+		 * 这条用例是「回落规则」的守卫：它保证 {@code ApiResponse} 的文案正确性
+		 * <b>不依赖测试执行顺序</b>（早期版本靠其他测试先起容器才能通过，单独跑本类会红）。
+		 */
+		@Test
+		@DisplayName("无容器时回落枚举固定文案，不外泄 message key")
+		void fallsBackToEnumMessageWithoutContainer() {
+			ApiResponse<Void> response = ApiResponse.<Void>failure(ApiResponseConstant.NOT_FOUND);
+
+			assertThat(response.getMessage()).isEqualTo("资源不存在").doesNotStartWith("response.");
+		}
+
+		/**
+		 * 默认构造与工厂方法在无容器时同样给出完整文案。
+		 */
+		@Test
+		@DisplayName("无容器时默认文案也不外泄 message key")
+		void defaultMessageNeverLeaksKeyWithoutContainer() {
+			assertThat(new ApiResponse<Void>().getMessage()).isEqualTo("操作成功").doesNotStartWith("response.");
+			assertThat(ApiResponse.success().getMessage()).isEqualTo("操作成功");
+			assertThat(ApiResponse.failure().getMessage()).isEqualTo("操作失败");
 		}
 	}
 

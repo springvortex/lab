@@ -97,4 +97,28 @@ class ProfileConfigTest {
 		withProfile("prod",
 				env -> assertThat(env.getProperty("app.cors.allowed-origins")).isEqualTo("https://your-domain.com"));
 	}
+
+	/**
+	 * 国际化配置独立成 {@code i18n} 附加 profile，并真正被 {@code include} 叠加上。
+	 *
+	 * <p>
+	 * 这条断言钉两件事：一是 {@code config/application-i18n.yaml} 里的属性名没写错（写错不报错、
+	 * 只是静默失效），二是 {@code application.yaml} 的 {@code include} 里确实有 {@code i18n}——
+	 * 少了它，国际化配置整体不加载，而 {@code I18nConfig} 代码内有同名默认值兜着，
+	 * <b>测试与冒烟都不会红</b>，属于典型静默失效。因此必须显式断言「配置文件生效」。
+	 */
+	@Test
+	@DisplayName("i18n：资源基名 / 编码 / 兜底策略 / 语言解析均已从配置文件绑定")
+	void i18nPropertiesAreBound() {
+		withProfile("dev", env -> {
+			// 这一项与下面几项不同：它是真的被读取的（I18nConfig 用 @Value 注入），
+			// 写错会直接启动失败。因此这里断言的既是「配置存在」也是「默认值符合预期」。
+			assertThat(env.getProperty("app.i18n.default-locale")).isEqualTo("zh-CN");
+			assertThat(env.getProperty("spring.messages.basename")).isEqualTo("i18n/messages");
+			assertThat(env.getProperty("spring.messages.encoding")).isEqualTo("UTF-8");
+			assertThat(env.getProperty("spring.messages.fallback-to-system-locale")).isEqualTo("false");
+			assertThat(env.getProperty("spring.messages.use-code-as-default-message")).isEqualTo("true");
+			assertThat(env.getProperty("spring.web.locale-resolver")).isEqualTo("accept-header");
+		});
+	}
 }

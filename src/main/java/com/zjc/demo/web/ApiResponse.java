@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import com.zjc.demo.constant.ApiResponseConstant;
 import com.zjc.demo.constant.ErrorCodeConstant;
 import com.zjc.demo.constant.TraceConstant;
+import com.zjc.demo.util.MessageUtils;
 
 import lombok.Builder;
 import lombok.Data;
@@ -33,6 +34,16 @@ import lombok.NoArgsConstructor;
  * {@link #httpStatus()} 处兜底为 500，详见该方法说明。
  *
  * <p>
+ * <b>国际化：{@code message} 默认按请求语言自动取词。</b> 语言由 {@code Accept-Language}
+ * 请求头决定（见 {@code config/I18nConfig}），业务代码无需传入文案：
+ *
+ * <pre>{@code
+ * // zh-CN 请求 -> {"code":200,"message":"操作成功",...}
+ * // en-US 请求 -> {"code":200,"message":"Success",...}
+ * ApiResponse<User> ok = ApiResponse.success(user);
+ * }</pre>
+ *
+ * <p>
  * <b>使用示例：</b>
  *
  * <pre>{@code
@@ -45,6 +56,9 @@ import lombok.NoArgsConstructor;
  *
  * // 指定状态码
  * ApiResponse<Void> fail2 = ApiResponse.failure(ApiResponseConstant.NOT_FOUND);
+ *
+ * // 业务自定义错误码枚举（实现 ErrorCodeConstant 即可，同样支持国际化）
+ * ApiResponse<Void> fail3 = ApiResponse.failure(UserErrorCode.USER_DISABLED);
  *
  * // 需要带状态码返回时（异常处理器里最常见）
  * return ApiResponse.failure(ApiResponseConstant.NOT_FOUND).toResponseEntity();
@@ -74,9 +88,18 @@ public class ApiResponse<T> implements Serializable {
 	 */
 	private Integer code = ApiResponseConstant.SUCCESS.code();
 	/**
-	 * 响应提示信息
+	 * 响应提示信息，按请求语言自动取词。
+	 *
+	 * <p>
+	 * 默认值是 {@code response.success} 的<b>当前语言</b>文案，由 {@link MessageUtils} 在实例创建时解析，
+	 * 因此同一个接口在 {@code Accept-Language: zh-CN} 与 {@code en-US} 下会返回不同文案，
+	 * 业务代码不需要做任何事。
+	 *
+	 * <p>
+	 * 提醒：解析发生在<b>字段初始化</b>期间，即每次 {@code new ApiResponse(...)} 都重新取词。
+	 * 这与 {@link #traceId} 从 MDC 读取是同一机制，都不依赖构造器参数。
 	 */
-	private String message = ApiResponseConstant.SUCCESS.message();
+	private String message = resolveMessage(ApiResponseConstant.SUCCESS);
 	/**
 	 * 业务返回数据
 	 */
@@ -126,19 +149,23 @@ public class ApiResponse<T> implements Serializable {
 	 * {@code null} 会真的置空。
 	 *
 	 * <p>
+	 * {@code message} 的默认值走 {@link MessageUtils} 取当前语言文案，因此「未指定文案」时，
+	 * 响应语言跟随请求的 {@code Accept-Language}。
+	 *
+	 * <p>
 	 * 业务代码优先使用 {@code success} / {@code failure} 工厂方法或 {@code builder()}，
 	 * 不要直接调用本构造器。
 	 *
 	 * @param success 是否成功
 	 * @param code    响应码（HTTP 状态码），{@code null} 时取 200
-	 * @param message 提示信息，{@code null} 时取默认文案
+	 * @param message 提示信息，{@code null} 时取当前语言的默认文案
 	 * @param data    业务数据
 	 */
 	@Builder
 	public ApiResponse(Boolean success, Integer code, String message, T data) {
 		this.success = success;
 		this.code = code == null ? ApiResponseConstant.SUCCESS.code() : code;
-		this.message = message == null ? ApiResponseConstant.SUCCESS.message() : message;
+		this.message = message == null ? resolveMessage(ApiResponseConstant.SUCCESS) : message;
 		this.data = data;
 	}
 
@@ -162,6 +189,10 @@ public class ApiResponse<T> implements Serializable {
 	/**
 	 * 成功响应，无数据。
 	 *
+	 * <p>
+	 * 不显式指定文案，由构造器回填 {@code response.success} 的当前语言文案，因此请求带
+	 * {@code Accept-Language: en-US} 时返回 {@code "Success"}。
+	 *
 	 * @param <T> 响应数据泛型
 	 * @return 成功响应，{@code code} 为 200
 	 */
@@ -171,6 +202,9 @@ public class ApiResponse<T> implements Serializable {
 
 	/**
 	 * 成功响应，携带返回数据。
+	 *
+	 * <p>
+	 * 文案同样走国际化默认值，见 {@link #success()}。
 	 *
 	 * @param data 返回数据
 	 * @param <T>  响应数据泛型
@@ -221,13 +255,16 @@ public class ApiResponse<T> implements Serializable {
 	/**
 	 * 默认失败响应，附带自定义数据。
 	 *
+	 * <p>
+	 * 提示文案取 {@link ApiResponseConstant#FAILURE} 的<b>当前语言</b>文案。
+	 *
 	 * @param data 错误附属数据，例如字段级校验结果明细
 	 * @param <T>  响应数据泛型
 	 * @return 失败响应，{@code data} 为传入的数据
 	 */
 	public static <T> ApiResponse<T> failure(T data) {
 		return ApiResponse.<T>builder().success(false).code(ApiResponseConstant.FAILURE.code())
-				.message(ApiResponseConstant.FAILURE.message()).data(data).build();
+				.message(resolveMessage(ApiResponseConstant.FAILURE)).data(data).build();
 	}
 
 	/**
@@ -277,13 +314,55 @@ public class ApiResponse<T> implements Serializable {
 	/**
 	 * 使用枚举构建失败响应，推荐业务异常场景使用。
 	 *
+	 * <p>
+	 * 提示文案按请求的 {@code Accept-Language} 解析：先取枚举的
+	 * {@link ApiResponseConstant#messageKey()} 去资源文件里查，查不到才回落到枚举自带的固定文案。
+	 *
 	 * @param responseEnum 响应枚举，提供状态码与默认文案
 	 * @param <T>          响应数据泛型
-	 * @return 失败响应，携带枚举的状态码与文案
+	 * @return 失败响应，携带枚举的状态码与当前语言的文案
 	 */
 	public static <T> ApiResponse<T> failure(ApiResponseConstant responseEnum) {
-		return ApiResponse.<T>builder().success(false).code(responseEnum.code()).message(responseEnum.message())
+		return ApiResponse.<T>builder().success(false).code(responseEnum.code()).message(resolveMessage(responseEnum))
 				.build();
+	}
+
+	/**
+	 * 使用自定义 {@link ErrorCodeConstant} 枚举构建失败响应。
+	 *
+	 * <p>
+	 * 相比 {@link #failure(ApiResponseConstant)}，本重载面向业务方自己的错误码枚举。与枚举
+	 * {@code messageKey()} 为 {@code null}（未覆写）时自动回退到 {@code message()} 固定文案，
+	 * 因此<b>旧的自定义枚举不改一行代码也能直接用</b>。
+	 *
+	 * @param errorCode 自定义错误码枚举
+	 * @param <T>       响应数据泛型
+	 * @return 失败响应，携带枚举的状态码与当前语言的文案
+	 */
+	public static <T> ApiResponse<T> failure(ErrorCodeConstant errorCode) {
+		return ApiResponse.<T>builder().success(false).code(errorCode.code()).message(resolveMessage(errorCode))
+				.build();
+	}
+
+	/**
+	 * 解析枚举对应的提示文案：优先按 {@code messageKey()} 取当前语言的翻译，取不到则回落固定文案。
+	 *
+	 * <p>
+	 * <b>为什么回落到 {@code message()} 而不是 key：</b>枚举的 {@code message()} 是一句完整的话
+	 * （如「资源不存在」），而 key（如 {@code response.not-found}）不是。回落到 key 会让调用方看到
+	 * 一个英文标识符，体验更差。真正需要「暴露 key 以便排查漏配」的场景是业务方自己调
+	 * {@code MessageUtils}，那时 {@code useCodeAsDefaultMessage} 会返回 key。
+	 *
+	 * <p>
+	 * 具体回落边界（含「无 Spring 容器」与「资源漏配」两种）由
+	 * {@link MessageUtils#getMessageOrDefault(String, String, Locale)} 统一处理，
+	 * 与 {@code BusinessException} 共用同一份实现。
+	 *
+	 * @param errorCode 错误码枚举
+	 * @return 非 {@code null} 的提示文案
+	 */
+	private static String resolveMessage(ErrorCodeConstant errorCode) {
+		return MessageUtils.getMessageOrDefault(errorCode.messageKey(), errorCode.message(), null);
 	}
 
 	/**

@@ -1,5 +1,7 @@
 package com.zjc.demo.constant;
 
+import com.zjc.demo.util.MessageUtils;
+
 /**
  * 链路追踪相关常量。
  *
@@ -37,12 +39,17 @@ public final class TraceConstant {
 	public static final int MAX_LENGTH = 64;
 
 	/**
-	 * 工具类禁止实例化。
+	 * 常量类禁止实例化。
 	 *
 	 * <p>
 	 * 访问修饰符 {@code private} 只能拦住正常代码，反射仍可绕过，因此这里显式抛异常， 让「禁止实例化」成为运行时保证而不是一句注释。
+	 *
+	 * <p>
+	 * 文案取自 {@code error.constant-class-instantiation}，与 {@code MessageUtils} 同样走资源文件，
+	 * 避免中文硬编码散落在各处。本类不依赖容器，因此传固定文案兜底。
 	 */
 	private TraceConstant() {
-		throw new UnsupportedOperationException("常量类禁止实例化");
+		throw new UnsupportedOperationException(
+				MessageUtils.getMessageOrDefault("error.constant-class-instantiation", "常量类禁止实例化", null));
 	}
 }

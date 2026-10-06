@@ -10,11 +10,13 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.ErrorResponseException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
@@ -163,6 +165,34 @@ class GlobalExceptionHandlerTest {
 		assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
 		assertThat(response.getBody()).isNotNull();
 		assertThat(response.getBody().getCode()).isEqualTo(10001);
+	}
+
+	/**
+	 * 框架异常携带<b>未知状态码</b>时兜底为 500。
+	 *
+	 * <p>
+	 * <b>为什么这条只能用单元测试：</b>要构造「状态码不在 {@link HttpStatus} 枚举内」的
+	 * {@code ErrorResponseException}，真实 HTTP 链路根本走不到。它是
+	 * {@code handleErrorResponse} 对「框架或第三方库传了码表外的状态码」的防御分支：
+	 * 不做这层判空，{@code resolved} 会是 {@code null}，紧随其后的 {@code is5xxServerError()}
+	 * 直接抛 NPE，而 NPE 又掉进兜底分支——最终响应仍是 500，但日志里会多出一条
+	 * 「未预期异常」的假故障，把真正的原因盖掉。
+	 *
+	 * <p>
+	 * 这里用 {@code 104}：它是合法的三位状态码（{@link HttpStatusCode#valueOf} 接受），
+	 * 但不在 {@link HttpStatus} 枚举里（{@code HttpStatus.resolve(104)} 返回 {@code null}），
+	 * 正好命中该分支。{@code 999} 之类的编码会被 {@code valueOf} 直接拒绝，构造不出来。
+	 */
+	@Test
+	@DisplayName("框架异常：未知状态码兜底为 500")
+	void unknownFrameworkStatusCodeFallsBackTo500() {
+		HttpStatusCode unknownStatus = HttpStatusCode.valueOf(104);
+		assertThat(HttpStatus.resolve(unknownStatus.value())).as("104 必须是码表外的状态码").isNull();
+
+		ResponseEntity<ApiResponse<Void>> response = handler
+				.handleErrorResponse(new ErrorResponseException(unknownStatus));
+
+		assertStatus(response, HttpStatus.INTERNAL_SERVER_ERROR);
 	}
 
 	/**

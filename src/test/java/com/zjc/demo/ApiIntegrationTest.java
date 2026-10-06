@@ -341,6 +341,75 @@ class ApiIntegrationTest {
 	}
 
 	/**
+	 * 框架自带状态码的异常（{@link ResponseStatusException}）必须如实透出，而不是被兜底改写成 500。
+	 *
+	 * <p>
+	 * <b>这组用例守的是一条很容易被忽略的分支</b>：{@code GlobalExceptionHandler#handleErrorResponse}。
+	 * Spring 6 起框架层大量用「自带状态码的异常」表达 4xx / 5xx，若没有这个处理器，它们会掉进兜底的
+	 * {@code Exception} 分支，被统一写成 500 + ERROR 堆栈——调用方、网关与 APM 都会把它误判成服务端故障，
+	 * 而真实原因只是「请求参数不对」。
+	 *
+	 * <p>
+	 * <b>为什么只能走真实 HTTP：</b>该分支由 Spring MVC 的异常解析链选中，直接调用处理器方法验证不了
+	 * 「这个异常是否真的会被路由到这里」——而路由错了正是最常见的故障形态。
+	 */
+	@Nested
+	@DisplayName("框架状态码异常")
+	class FrameworkStatusExceptions {
+
+		/**
+		 * 带原因的 4xx：状态码如实透出，原因是框架给出的具体描述。
+		 *
+		 * @throws Exception MVC 调用失败
+		 */
+		@Test
+		@DisplayName("4xx 带原因：状态码与原因都透出")
+		void clientErrorWithReasonPassesThrough() throws Exception {
+			mockMvc.perform(get("/test/status-conflict")).andExpect(status().isConflict())
+					.andExpect(jsonPath("$.code").value(409))
+					.andExpect(jsonPath("$.message").value("订单状态冲突"))
+					.andExpect(jsonPath("$.success").value(false));
+		}
+
+		/**
+		 * 不带原因的 4xx：消息回退到状态码短语，不能变成 {@code null}。
+		 *
+		 * <p>
+		 * 这是 4xx 分支里的三元判断的另一条边：{@code detail == null} 时取
+		 * {@code resolved.getReasonPhrase()}，保证响应体里始终有一句可读的说明。
+		 *
+		 * @throws Exception MVC 调用失败
+		 */
+		@Test
+		@DisplayName("4xx 无原因：回退到状态码短语")
+		void clientErrorWithoutReasonUsesPhrase() throws Exception {
+			mockMvc.perform(get("/test/status-no-reason")).andExpect(status().isNotFound())
+					.andExpect(jsonPath("$.code").value(404))
+					.andExpect(jsonPath("$.message").value("Not Found"));
+		}
+
+		/**
+		 * 5xx：仅返回通用文案，框架给出的 detail 不外泄。
+		 *
+		 * <p>
+		 * 5xx 属服务端故障，detail 可能包含内部实现细节（如数据库名、栈帧），
+		 * 因此这一分支刻意丢弃 {@code detail}、只回落到枚举的通用文案。
+		 *
+		 * @throws Exception MVC 调用失败
+		 */
+		@Test
+		@DisplayName("5xx：状态码透出但隐藏 detail")
+		void serverErrorHidesDetail() throws Exception {
+			MvcResult result = mockMvc.perform(get("/test/status-server-error"))
+					.andExpect(status().isInternalServerError()).andExpect(jsonPath("$.code").value(500))
+					.andExpect(jsonPath("$.message").value(ApiResponseConstant.INTERNAL_ERROR.message())).andReturn();
+
+			assertThat(result.getResponse().getContentAsString(StandardCharsets.UTF_8))
+					.as("5xx 不得泄露框架 detail").doesNotContain("模拟内部细节");
+		}
+	}
+
+	/**
 	 * 跨域配置必须真正生效，否则前端联调会被浏览器拦截。
 	 */
 	@Nested
@@ -534,6 +603,147 @@ class ApiIntegrationTest {
 			mockMvc.perform(get("/test/validated-param").param("name", " ")).andExpect(status().isBadRequest())
 					.andExpect(jsonPath("$.code").value(400)).andExpect(jsonPath("$.message").value("name: 名称不能为空"))
 					.andExpect(jsonPath("$.success").value(false));
+		}
+	}
+
+	/**
+	 * 国际化语言协商：{@code Accept-Language} 请求头必须真的能切换响应文案。
+	 *
+	 * <p>
+	 * <b>为什么必须在集成测试里测：</b>{@code I18nConfig} 里 {@code LocaleResolver} 的核心行为——
+	 * 「把请求头解析成清单内的精确 Locale」——只有经过 DispatcherServlet + 真实的
+	 * {@code AcceptHeaderLocaleResolver} 才会发生。直接调 {@code MessageUtils} 是测不到的，
+	 * 因为那一步绕过了解析器（见 {@code MessageUtilsTest} 里对照的那条用例）。
+	 *
+	 * <p>
+	 * <b>这条链路最容易静默失效：</b>若 {@code LocaleResolver} 没设 {@code supportedLocales}，
+	 * 英文请求会照常返回 200 + 中文，没有任何报错。所以这里的断言必须同时覆盖
+	 * 「语言切过去了」和「状态码没被带偏」两面。
+	 */
+	@Nested
+	@DisplayName("国际化：Accept-Language 语言协商")
+	class LanguageNegotiation {
+
+		/**
+		 * 英文请求：成功响应与异常响应都必须是英文。
+		 *
+		 * <p>
+		 * 一次覆盖两条链路：正常返回（{@code ApiResponse} 字段初始值取词）与异常返回
+		 * （{@code GlobalExceptionHandler} 取词），两者用的是同一套 {@code MessageSource}。
+		 *
+		 * @throws Exception MVC 调用失败
+		 */
+		@Test
+		@DisplayName("en-US：成功与 404 响应均为英文")
+		void englishLocaleSwitchesBothSuccessAndFailure() throws Exception {
+			mockMvc.perform(get("/hello").header(HttpHeaders.ACCEPT_LANGUAGE, "en-US")).andExpect(status().isOk())
+					.andExpect(jsonPath("$.message").value("Success"));
+
+			mockMvc.perform(get("/no-such-endpoint").header(HttpHeaders.ACCEPT_LANGUAGE, "en-US"))
+					.andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value(404))
+					.andExpect(jsonPath("$.message").value("Resource not found"));
+		}
+
+		/**
+		 * 区域变体请求头（{@code en-GB}）由 LocaleResolver 归一后同样得到英文。
+		 *
+		 * <p>
+		 * <b>这一条是「清单必须写语言级」的守卫。</b>清单里若写 {@code Locale.US}
+		 * （country = {@code "US"}），Spring 的 {@code findSupportedLocale} 不会做语言级兜底，
+		 * {@code en-GB} 会静默回落到中文。改动 {@code I18nConfig#SUPPORTED_LOCALES} 时若把
+		 * 语言级改成国家/地区级，本用例立刻变红。
+		 *
+		 * <p>
+		 * 与 {@code MessageUtilsTest#regionalLocaleDoesNotMatchLanguageBundle} 正好构成对照：
+		 * 同一个"带国家/地区"的 Locale，绕过解析器直接问消息源会回落中文，走真实 HTTP 请求头
+		 * 则被解析器归一成 {@code en} 并命中英文。
+		 *
+		 * @throws Exception MVC 调用失败
+		 */
+		@Test
+		@DisplayName("en-GB：被解析器归一后同样返回英文")
+		void regionalEnglishIsNegotiated() throws Exception {
+			mockMvc.perform(get("/hello").header(HttpHeaders.ACCEPT_LANGUAGE, "en-GB")).andExpect(status().isOk())
+					.andExpect(jsonPath("$.message").value("Success"));
+		}
+
+		/**
+		 * 中文请求头返回中文。
+		 *
+		 * @throws Exception MVC 调用失败
+		 */
+		@Test
+		@DisplayName("zh-CN：返回中文")
+		void chineseLocaleReturnsChinese() throws Exception {
+			mockMvc.perform(get("/hello").header(HttpHeaders.ACCEPT_LANGUAGE, "zh-CN")).andExpect(status().isOk())
+					.andExpect(jsonPath("$.message").value("操作成功"));
+		}
+
+		/**
+		 * 不带请求头时回落到默认语言（中文），行为可预期。
+		 *
+		 * <p>
+		 * 断言的是「默认语言」而不是「JVM 语言」：容器里 JVM 语言往往是 {@code en_US}，
+		 * 若 {@code LocaleResolver} 没设 {@code defaultLocale}，本用例在开发机通过、在容器里返回
+		 * 英文——这正是默认语言取自配置 {@code app.i18n.default-locale}、刻意不用 {@code Locale.getDefault()}
+		 * 的原因。
+		 *
+		 * @throws Exception MVC 调用失败
+		 */
+		@Test
+		@DisplayName("无 Accept-Language：回落到默认语言中文")
+		void missingHeaderFallsBackToDefaultLocale() throws Exception {
+			mockMvc.perform(get("/hello")).andExpect(status().isOk())
+					.andExpect(jsonPath("$.message").value("操作成功"));
+		}
+
+		/**
+		 * 清单外的语言（法语）回落到默认语言，而不是 406 或空文案。
+		 *
+		 * @throws Exception MVC 调用失败
+		 */
+		@Test
+		@DisplayName("不支持的语言 fr：回落到默认语言")
+		void unsupportedLanguageFallsBackToDefault() throws Exception {
+			mockMvc.perform(get("/hello").header(HttpHeaders.ACCEPT_LANGUAGE, "fr-FR")).andExpect(status().isOk())
+					.andExpect(jsonPath("$.message").value("操作成功"));
+		}
+
+		/**
+		 * 带占位符的异常文案也必须按语言切换，且参数名保持原样。
+		 *
+		 * <p>
+		 * 覆盖 405 分支：中文「{@code POST 方法不支持}」/ 英文「{@code POST method is not supported}」。
+		 * 这是唯一一处「枚举文案 + 运行时参数」组合取词的地方，最容易写成字符串拼接而无法翻译。
+		 *
+		 * @throws Exception MVC 调用失败
+		 */
+		@Test
+		@DisplayName("405 带占位符：中英文语序各自正确")
+		void methodNotAllowedMessageIsLocalized() throws Exception {
+			mockMvc.perform(post("/hello").header(HttpHeaders.ACCEPT_LANGUAGE, "zh-CN"))
+					.andExpect(status().isMethodNotAllowed()).andExpect(jsonPath("$.message").value("POST 方法不支持"));
+
+			mockMvc.perform(post("/hello").header(HttpHeaders.ACCEPT_LANGUAGE, "en-US"))
+					.andExpect(status().isMethodNotAllowed())
+					.andExpect(jsonPath("$.message").value("POST method is not supported"));
+		}
+
+		/**
+		 * 参数校验失败透传的是注解里写的 {@code defaultMessage}，<b>不参与</b>国际化。
+		 *
+		 * <p>
+		 * 这是一条<b>刻意钉死的边界</b>：模板无法替业务决定校验文案要不要翻译。断言中英文请求拿到
+		 * 同样的中文，是为了防止有人误以为「所有 message 都会自动翻译」。业务需要多语言时，
+		 * 把注解的 {@code message} 写成 key 再自行用 {@code MessageUtils} 取词即可。
+		 *
+		 * @throws Exception MVC 调用失败
+		 */
+		@Test
+		@DisplayName("参数校验文案不随语言变化（来自注解 defaultMessage）")
+		void validationMessageIsNotLocalized() throws Exception {
+			mockMvc.perform(get("/test/validated-param").param("name", " ").header(HttpHeaders.ACCEPT_LANGUAGE, "en-US"))
+					.andExpect(status().isBadRequest()).andExpect(jsonPath("$.message").value("name: 名称不能为空"));
 		}
 	}
 }

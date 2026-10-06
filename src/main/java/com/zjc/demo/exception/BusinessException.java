@@ -1,11 +1,13 @@
 package com.zjc.demo.exception;
 
 import java.io.Serial;
+import java.util.Locale;
 
 import org.springframework.http.HttpStatus;
 
 import com.zjc.demo.constant.ApiResponseConstant;
 import com.zjc.demo.constant.ErrorCodeConstant;
+import com.zjc.demo.util.MessageUtils;
 
 import lombok.Getter;
 
@@ -22,6 +24,10 @@ import lombok.Getter;
  * throw new BusinessException(404, "用户不存在");
  * throw new BusinessException(HttpStatus.CONFLICT, "数据已存在");
  * }</pre>
+ *
+ * <p>
+ * <b>国际化：用枚举构造时文案自动跟随请求语言</b>，用字符串构造时则原样透传（调用方自己负责多语言）。
+ * 详细规则见 {@link #BusinessException(ErrorCodeConstant)}。
  *
  * <p>
  * <b>约定：{@code code} 就是 HTTP 状态码</b>，会被 {@code ApiResponse#httpStatus()}
@@ -52,11 +58,32 @@ public class BusinessException extends RuntimeException {
 	/**
 	 * 使用 {@link ErrorCodeConstant} 枚举构造（推荐）。
 	 *
+	 * <p>
+	 * 提示文案按请求的 {@code Accept-Language} 解析：优先用枚举的
+	 * {@link ErrorCodeConstant#messageKey()} 去资源文件查词，查不到（或未覆写该方法、返回
+	 * {@code null}）则回落到枚举的 {@link ErrorCodeConstant#message()} 固定文案。
+	 *
+	 * <p>
+	 * <b>解析发生在构造时</b>，即当时请求线程的语言。因此本异常不应被跨请求复用
+	 * （如缓存起来下次再抛），否则会带出上一个请求的语言。
+	 *
 	 * @param errorCodeConstant 错误码枚举
 	 */
 	public BusinessException(ErrorCodeConstant errorCodeConstant) {
-		super(errorCodeConstant.message());
+		super(resolveMessage(errorCodeConstant));
 		this.code = errorCodeConstant.code();
+	}
+
+	/**
+	 * 解析枚举对应的异常文案，规则与 {@code ApiResponse#resolveMessage} 保持一致：
+	 * 没有 key、取不到词、或取回来的就是 key 本身（容器未就绪或资源漏配）时，都退到固定文案。
+	 * 具体逻辑由 {@link MessageUtils#getMessageOrDefault(String, String, Locale)} 统一实现。
+	 *
+	 * @param errorCodeConstant 错误码枚举
+	 * @return 非 {@code null} 的提示文案
+	 */
+	private static String resolveMessage(ErrorCodeConstant errorCodeConstant) {
+		return MessageUtils.getMessageOrDefault(errorCodeConstant.messageKey(), errorCodeConstant.message(), null);
 	}
 
 	/**
