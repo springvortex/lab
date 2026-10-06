@@ -2,11 +2,15 @@ package com.zjc.demo.support;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Locale;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.ConfigDataApplicationContextInitializer;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.core.env.Environment;
+
+import com.zjc.demo.config.I18nConfig;
 
 /**
  * 配置文件（{@code application.yaml} + {@code config/application-*.yaml}）的守护测试。
@@ -112,8 +116,13 @@ class ProfileConfigTest {
 	void i18nPropertiesAreBound() {
 		withProfile("dev", env -> {
 			// 这一项与下面几项不同：它是真的被读取的（I18nConfig 用 @Value 注入），
-			// 写错会直接启动失败。因此这里断言的既是「配置存在」也是「默认值符合预期」。
-			assertThat(env.getProperty("app.i18n.default-locale")).isEqualTo("zh-CN");
+			// 写错会直接启动失败。这里断言的是「解析后落在支持清单内」而不是字面值——
+			// zh-CN / zh_CN / zh 三种写法等价，钉死字面值会让改个写法就红，属于脆断言。
+			String configured = env.getProperty("app.i18n.default-locale");
+			assertThat(configured).as("app.i18n.default-locale 必须有值").isNotBlank();
+			Locale parsed = Locale.forLanguageTag(configured.trim().replace('_', '-'));
+			assertThat(I18nConfig.SUPPORTED_LOCALES).as("配置值 %s 必须落在支持清单内", configured)
+					.anyMatch(supported -> supported.getLanguage().equals(parsed.getLanguage()));
 			assertThat(env.getProperty("spring.messages.basename")).isEqualTo("i18n/messages");
 			assertThat(env.getProperty("spring.messages.encoding")).isEqualTo("UTF-8");
 			assertThat(env.getProperty("spring.messages.fallback-to-system-locale")).isEqualTo("false");
