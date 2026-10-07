@@ -1,7 +1,6 @@
 # SpringVortexDemo
 
-> 本仓库是 Spring Boot 4 脚手架仓库。**`main` 分支只做导航，不放任何代码**——
-> 它是别人 clone 下来看到的第一个分支，作用是告诉你去哪个分支拿什么。
+> 本仓库是 Spring Boot 4 脚手架仓库。**`main` 分支只做导航，不放任何代码**，它是别人 clone 下来看到的第一个分支，作用是告诉你去哪个分支拿什么。
 
 ## 分支一览
 
@@ -14,56 +13,9 @@
 | **`sample/boot2-jdk8`** | Boot 2 基座（JDK 8） | 2.7.18 | 8 | `sample/boot3-jdk21` | 2026-10-05 | 稳定 | [进入](https://github.com/springvortex/lab/tree/sample/boot2-jdk8) |
 | **`sample/boot2-jdk11`** | Boot 2 基座（JDK 11） | 2.7.18 | 11 | `sample/boot2-jdk8` | 2026-10-05 | 稳定 | [进入](https://github.com/springvortex/lab/tree/sample/boot2-jdk11) |
 | **`springboot4/feature`** | Boot 4 新特性教程文章 + 可运行示例 | 4.1.1 | 25 | `sample/boot4-jdk25` | 2026-10-02 | 稳定 | [进入](https://github.com/springvortex/lab/tree/springboot4/feature) |
+| **`springboot4/i18n`** | 教程分支：响应消息国际化，一个 `Accept-Language` 请求头切换中英文（附保姆级教程） | 4.1.1 | 25 | `template` | 2026-10-06 | 活跃 | [进入](https://github.com/springvortex/lab/tree/springboot4/i18n) |
 
-> **该拉哪条？** 起新项目用当前主用的 `template`。JDK 跑不到 25 时，按上表右侧的 Boot / JDK 组合
-> 挑对应的 `sample/*` 基座。四个基座功能等价，差异只在版本和对应的 API 替换
-> （`javax.*` ↔ `jakarta.*`、`RestTemplate` ↔ `RestClient`、springdoc 1.x ↔ 3.x 等），
-> 各自 README 里都有完整的版本对照表。
-
-### 脚手架包含什么
-
-下面这份清单对 `template` 与 `sample/boot4-jdk25` 同样适用——两条分支当前内容完全一致。
-
-- **技术栈**：Spring Boot 4.1.1 / Spring Framework 7 / Java 25 / Maven
-- **Web 层**：`spring-boot-starter-webmvc`（Boot 4 里 `-web` 的改名）、虚拟线程默认开启
-- **统一响应**：`ApiResponse`，body 里的 `code` **就是** HTTP 状态码
-- **链路追踪**：traceId 三层闭环 —— `TraceIdFilter`（入站）→ `MdcTaskDecorator`（`@Async` 异步）→
-  `TraceIdPropagationInterceptor`（`RestClient` 出站透传）
-- **全局异常处理**：`GlobalExceptionHandler`，含 Spring 6.1+ 的 `HandlerMethodValidationException` 兜底
-- **配置分层**：`application.yaml` + `config/application-pub.yaml`（公共）+
-  `config/application-{dev,test,prod}.yaml`（只写差异）
-- **日志**：logback 按级别分文件 + 异步队列 + 生产落控制台（容器化下 `docker logs` 可见）
-- **接口文档**：springdoc 3.1.1 + 程序化 `OpenApiConfig`，按模块分组（非生产开启、生产自动关闭）
-- **监控**：actuator，含 K8s liveness / readiness 探针
-- **质量门禁**：JaCoCo + 112 个测试用例，行 / 分支覆盖率 100%
-- **工程规范**：`.editorconfig` / `.gitattributes` / MIT `LICENSE`
-
-详细说明、升级注意事项、以及**派生新项目的完整步骤**都在 `template` 分支的 `README.md` 里
-（`sample/boot4-jdk25` 的内容与之一致，用 `git show <分支名>:README.md` 也能看）。
-
-## 分支策略
-
-```
-main                        ← 你在这里：纯索引，无代码
-├── template                当前主用的 Boot 4 脚手架（Boot 4.1.1 / JDK 25）
-│   ├── xxxxx-mysql         教程分支：集成 MySQL
-│   └── xxxxx-redis         教程分支：集成 Redis
-├── sample/boot4-jdk25      Boot 4 基座：template 的上游，通常只读
-├── sample/boot3-jdk21      Boot 3 基座：Boot 3.5.16 / JDK 21
-├── sample/boot2-jdk11      Boot 2 基座：Boot 2.7.18 / JDK 11
-├── sample/boot2-jdk8       Boot 2 基座：Boot 2.7.18 / JDK 8
-└── springboot4/feature     教程分支：Boot 4 新特性文章 + 可运行示例
-```
-
-三条约定：
-
-1. `main` 只做导航，**不写代码**（保持 `git ls-tree main` 永远只有文档与许可文件）。
-2. 任何教程 / 实验分支**一律从对应的脚手架分支拉取**（当前主用 `template`，老 JDK 用对应的
-   `sample/*` 基座），不要在别的教程分支上继续叠功能，避免主题互相污染。
-3. 新建教程分支后，回到本文件「分支说明」补一行，保持索引可查。
-
-> `template` 承担日常改动后，`sample/boot4-jdk25` 原则上不再直接提交——只在「从基座同步」这类场景
-> 才有改动。其余 `sample/*` 基座各自长期维护，改一边记得评估另一边。
+> **该拉哪条？** 起新项目用当前主用的 `template`。JDK 跑不到 25 时，按上表右侧的 Boot / JDK 组合挑对应的 `sample/*` 基座。四个基座功能等价，差异只在版本和对应的 API 替换（`javax.*` ↔ `jakarta.*`、`RestTemplate` ↔ `RestClient`、springdoc 1.x ↔ 3.x 等），各自 README 里都有完整的版本对照表。
 
 ## 怎么用
 
