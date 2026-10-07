@@ -59,7 +59,7 @@ public class MybatisPlusConfig {
 	public static final long MAX_PAGE_SIZE = 500L;
 
 	/**
-	 * 注册 MyBatis-Plus 拦截器链，启用分页（PostgreSQL 方言）与乐观锁。
+	 * 注册 MyBatis-Plus 拦截器链，启用分页（MySQL 方言）与乐观锁。
 	 *
 	 * <p>
 	 * 两个拦截器都只在「条件满足」时改写 SQL：分页拦截 {@code IPage} 参数的查询，
@@ -75,7 +75,7 @@ public class MybatisPlusConfig {
 		interceptor.addInnerInterceptor(new OptimisticLockerInnerInterceptor());
 
 		// 分页放最后：官方要求，避免 COUNT SQL 统计不准
-		PaginationInnerInterceptor pagination = new PaginationInnerInterceptor(DbType.POSTGRE_SQL);
+		PaginationInnerInterceptor pagination = new PaginationInnerInterceptor(DbType.MYSQL);
 		pagination.setMaxLimit(MAX_PAGE_SIZE);
 		interceptor.addInnerInterceptor(pagination);
 

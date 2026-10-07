@@ -15,14 +15,14 @@ import com.baomidou.mybatisplus.annotation.Version;
 import lombok.Data;
 
 /**
- * 演示用实体：对应 PostgreSQL 表 {@code demo_user}。
+ * 演示用实体：对应 MySQL 表 {@code demo_user}。
  *
  * <p>
  * 它是「MyBatis-Plus 注解能力」的集中展示，几个关键注解的含义与代价：
  * <ul>
  * <li>{@code @TableName}：类名与表名不一致时必写，否则 MP 按类名转下划线去猜表名；</li>
  * <li>{@code @TableId(type = IdType.ASSIGN_ID)}：雪花 ID 由 MP 在本地生成，
- * <b>不与数据库交互</b>，因此批量插入不需要逐条回查主键。代价是 ID 较长（19 位），
+ * <b>不与数据库交互</b>，因此批量插入不需要逐条回查主键（表列也就不需要 AUTO_INCREMENT）。代价是 ID 较长（19 位），
  * 传到 JS 会超出 {@code Number} 安全整数上限——本项目已用 Jackson 的
  * {@code Long → String} 全局转换接住（见 {@code JacksonConfig}）；</li>
  * <li>{@code @Version}：乐观锁。更新时自动追加 {@code AND version = ?} 并 {@code version + 1}，
@@ -34,8 +34,8 @@ import lombok.Data;
  * <p>
  * <b>注意事项：</b>
  * <ul>
- * <li>时间字段用 {@code LocalDateTime}（无时区），与 PostgreSQL 的 {@code timestamp} 列对应。
- * 若列类型是 {@code timestamptz}，请改用 {@code OffsetDateTime} / {@code Instant}；</li>
+ * <li>时间字段用 {@code LocalDateTime}（无时区），与 MySQL 的 {@code datetime} 列对应。
+ * 若列类型是 {@code timestamp}（MySQL 的 timestamp 会随时区换算），请改用 {@code Instant}；</li>
  * <li>{@code createTime} / {@code updateTime} 的填充逻辑在
  * {@code MybatisPlusMetaObjectHandler}，<b>字段注解与处理器必须成对配置</b>才生效；</li>
  * <li>{@code @TableField(fill = ...)} 只影响 MP 的 {@code insert} / {@code update} 方法，

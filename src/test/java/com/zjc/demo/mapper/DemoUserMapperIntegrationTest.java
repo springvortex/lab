@@ -20,13 +20,13 @@ import com.zjc.demo.entity.DemoUser;
 import jakarta.annotation.Resource;
 
 /**
- * Mapper 层真库集成测试：打本地 PostgreSQL，验证 SQL 方言、分页、逻辑删除与乐观锁的真实行为。
+ * Mapper 层真库集成测试：打本地 MySQL，验证 SQL 方言、分页、逻辑删除与乐观锁的真实行为。
  *
  * <p>
  * <b>为什么必须是真库：</b>分页方言、{@code timestamp} 与 {@code LocalDateTime} 的映射、
  * 逻辑删除追加的 {@code AND deleted = 0}、乐观锁的 {@code WHERE version = ?}，
  * 全都是「跑在别的数据库上才暴露」的行为。用 H2 或 Mockito 打桩都测不出来——
- * 它们能证明代码逻辑通顺，证明不了 PostgreSQL 上真的对。
+ * 它们能证明代码逻辑通顺，证明不了 MySQL 上真的对。
  *
  * <p>
  * <b>数据隔离：</b>类上标了 {@link Transactional}，每个用例结束后 Spring 自动回滚，

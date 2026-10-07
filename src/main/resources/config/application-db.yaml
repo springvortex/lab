@@ -1,9 +1,9 @@
 spring:
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/postgres?currentSchema=demo&ApplicationName=SpringVortexDemo&reWriteBatchedInserts=true}
-    username: ${DB_USERNAME:jiancai.zhong}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/demo?characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true&sslMode=DISABLED&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:123456}
-    driver-class-name: org.postgresql.Driver
+    driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       pool-name: VortexHikari
       connection-timeout: 30000

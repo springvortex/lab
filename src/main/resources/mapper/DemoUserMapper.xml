@@ -20,7 +20,8 @@
 
     <!--
       动态条件 + 分页查询。
-      ILIKE 是 PostgreSQL 专属的大小写不敏感匹配（MySQL 用 LIKE 即可，因为默认不区分大小写）。
+      这里的 LIKE 就是大小写不敏感的：MySQL 8 默认排序规则 utf8mb4_0900_ai_ci 是 _ci（case insensitive）。
+      移植到区分大小写的库（如 PostgreSQL）要改用 ILIKE，或显式写 LOWER(...) LIKE LOWER(...)。
       参数用 @Param 命名后，XML 里直接用名字引用，不要写 #{param1} / #{arg0}。
     -->
     <select id="selectByCondition" resultType="DemoUser">
@@ -31,8 +32,8 @@
             <!-- 手写 SQL 必须自己带上逻辑删除条件 -->
             deleted = 0
             <if test="keyword != null and keyword != ''">
-                AND (username ILIKE CONCAT('%', #{keyword}, '%')
-                OR email ILIKE CONCAT('%', #{keyword}, '%'))
+                AND (username LIKE CONCAT('%', #{keyword}, '%')
+                OR email LIKE CONCAT('%', #{keyword}, '%'))
             </if>
             <if test="minAge != null">
                 AND age &gt;= #{minAge}

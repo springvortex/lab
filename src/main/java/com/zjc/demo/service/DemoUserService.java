@@ -18,8 +18,8 @@ import com.zjc.demo.entity.DemoUser;
  * <p>
  * <b>注意事项：</b>
  * <ul>
- * <li>{@code saveBatch} 默认 1000 条一批，底层仍是一条条发给数据库。要真正提速，
- * PostgreSQL 必须在 JDBC URL 上带 {@code reWriteBatchedInserts=true}
+ * <li>{@code saveBatch} 默认 1000 条一批，但底层仍是一条条发给数据库。要真正提速，
+ * MySQL 必须在 JDBC URL 上带 {@code rewriteBatchedStatements=true}
  * （本项目已在 {@code application-db.yaml} 里带上），否则批量插入与逐条插入速度差别不大；</li>
  * <li>{@code lambdaQuery()} 用方法引用写条件，字段改名时编译期就报错，
  * 比手写 {@code "user_name"} 字符串安全；</li>

@@ -36,7 +36,7 @@ import jakarta.validation.constraints.Min;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * 演示用户接口：一套完整的单表 CRUD + 分页，用来验证 PostgreSQL 与 MyBatis-Plus 的集成。
+ * 演示用户接口：一套完整的单表 CRUD + 分页，用来验证 MySQL 与 MyBatis-Plus 的集成。
  *
  * <p>
  * 严格遵守模板的三条 Controller 约定：只做「接收参数 → 调用 Service → 包装响应」，
@@ -64,7 +64,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @RestController
 @Slf4j
-@Tag(name = "演示用户", description = "PostgreSQL + MyBatis-Plus 集成示例接口")
+@Tag(name = "演示用户", description = "MySQL + MyBatis-Plus 集成示例接口")
 public class DemoUserController {
 
 	/**
@@ -159,7 +159,7 @@ public class DemoUserController {
 	 * 条件由 {@code LambdaQueryWrapper} 拼；这个走 {@code resources/mapper/DemoUserMapper.xml}
 	 * 里的 {@code selectByCondition}，条件用 {@code <if>} 动态拼。
 	 * <b>什么时候该换成自定义 SQL：</b>条件特别多且带分支、要多表 join、要用数据库专属函数
-	 * （如 PostgreSQL 的 {@code ILIKE}），或者 Wrapper 拼出来的 SQL 性能不行。
+	 * （如 MySQL 的 {@code DATE_FORMAT} / {@code IFNULL}），或者 Wrapper 拼出来的 SQL 性能不行。
 	 *
 	 * <p>
 	 * 分页参数照常传 {@code IPage}，分页插件会自动改写这条自定义 SQL——

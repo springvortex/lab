@@ -27,10 +27,10 @@ import jakarta.annotation.Resource;
 
 /**
  * {@link DemoUserController} 端到端测试：从真实 HTTP 请求出发，走完整的
- * Filter → DispatcherServlet → Controller → Service → Mapper → PostgreSQL 链路。
+ * Filter → DispatcherServlet → Controller → Service → Mapper → MySQL 链路。
  *
  * <p>
- * 与 {@code DemoUserMapperIntegrationTest} 的分工：那边验证「SQL 在 PostgreSQL 上对不对」，
+ * 与 {@code DemoUserMapperIntegrationTest} 的分工：那边验证「SQL 在 MySQL 上对不对」，
  * 这里验证「HTTP 语义对不对」——状态码是不是 {@code code}、参数校验失败是不是 400、
  * 资源不存在是不是 404。这些只有 DispatcherServlet 参与时才成立。
  *

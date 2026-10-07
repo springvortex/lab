@@ -36,18 +36,18 @@ class MybatisPlusConfigTest {
 	}
 
 	/**
-	 * 分页拦截器必须显式指定 PostgreSQL 方言，并带上单页条数上限。
+	 * 分页拦截器必须显式指定 MySQL 方言，并带上单页条数上限。
 	 */
 	@Test
-	@DisplayName("分页拦截器：PostgreSQL 方言 + 单页条数上限")
-	void paginationUsesPostgreDialectAndMaxLimit() {
+	@DisplayName("分页拦截器：MySQL 方言 + 单页条数上限")
+	void paginationUsesMysqlDialectAndMaxLimit() {
 		MybatisPlusInterceptor interceptor = new MybatisPlusConfig().mybatisPlusInterceptor();
 
 		InnerInterceptor last = interceptor.getInterceptors().get(1);
 		assertThat(last).isInstanceOf(PaginationInnerInterceptor.class);
 
 		PaginationInnerInterceptor pagination = (PaginationInnerInterceptor) last;
-		assertThat(pagination.getDbType()).isEqualTo(DbType.POSTGRE_SQL);
+		assertThat(pagination.getDbType()).isEqualTo(DbType.MYSQL);
 		assertThat(pagination.getMaxLimit()).isEqualTo(MybatisPlusConfig.MAX_PAGE_SIZE);
 	}
 }

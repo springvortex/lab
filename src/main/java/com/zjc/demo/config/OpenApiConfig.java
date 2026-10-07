@@ -89,7 +89,7 @@ public class OpenApiConfig {
 	}
 
 	/**
-	 * 演示用户分组：PostgreSQL + MyBatis-Plus 集成示例接口。
+	 * 演示用户分组：MySQL + MyBatis-Plus 集成示例接口。
 	 *
 	 * <p>
 	 * 按 URL 前缀 {@code /api/users/**} 划分，与 {@code DemoUserController} 各方法上写的

@@ -42,8 +42,8 @@ class DatabaseConfigTest {
 	@DisplayName("db profile：数据源与连接池配置生效")
 	void datasourceIsLoadedFromDbProfile() {
 		withProfile("dev", env -> {
-			assertThat(env.getProperty("spring.datasource.driver-class-name")).isEqualTo("org.postgresql.Driver");
-			assertThat(env.getProperty("spring.datasource.url")).contains("jdbc:postgresql:");
+			assertThat(env.getProperty("spring.datasource.driver-class-name")).isEqualTo("com.mysql.cj.jdbc.Driver");
+			assertThat(env.getProperty("spring.datasource.url")).contains("jdbc:mysql:");
 			assertThat(env.getProperty("spring.datasource.hikari.pool-name")).isEqualTo("VortexHikari");
 			assertThat(env.getProperty("spring.datasource.hikari.maximum-pool-size")).isEqualTo("20");
 		});
@@ -86,12 +86,12 @@ class DatabaseConfigTest {
 	@DisplayName("dev：环境变量可覆盖默认数据源")
 	void environmentVariablesOverrideDefaults() {
 		new ApplicationContextRunner().withInitializer(new ConfigDataApplicationContextInitializer())
-				.withPropertyValues("spring.profiles.active=dev", "DB_URL=jdbc:postgresql://db.internal:5432/app",
+				.withPropertyValues("spring.profiles.active=dev", "DB_URL=jdbc:mysql://db.internal:3306/app",
 						"DB_USERNAME=app", "DB_PASSWORD=secret")
 				.run(context -> {
 					Environment env = context.getEnvironment();
 					assertThat(env.getProperty("spring.datasource.url"))
-							.isEqualTo("jdbc:postgresql://db.internal:5432/app");
+							.isEqualTo("jdbc:mysql://db.internal:3306/app");
 					assertThat(env.getProperty("spring.datasource.username")).isEqualTo("app");
 					assertThat(env.getProperty("spring.datasource.password")).isEqualTo("secret");
 				});

@@ -15,7 +15,7 @@
 | 测试          | `spring-boot-starter-webmvc-test`（JUnit 6 / AssertJ 3 / Mockito 5）            |
 | 工具          | Lombok 1.18.x、`spring-boot-devtools`（optional）                                |
 | 并发          | 虚拟线程，**默认开启**（`spring.threads.virtual.enabled=true`，需 Java 21+）               |
-| 数据库        | PostgreSQL 17 + HikariCP（Boot 默认连接池），驱动 `org.postgresql:postgresql`      |
+| 数据库        | MySQL 9 + HikariCP（Boot 默认连接池），驱动 `com.mysql:mysql-connector-j`          |
 | ORM          | MyBatis-Plus 3.5.17（Boot 4 专用 starter + `mybatis-plus-jsqlparser`）          |
 
 > Boot 4 把 `spring-boot-starter-web` 改名为 `spring-boot-starter-webmvc`；测试依赖也按技术栈拆开了，
@@ -325,10 +325,8 @@ javadoc -Xdoclint:all,-missing -quiet -encoding UTF-8 -charset UTF-8 \
 模板自带一套可运行的测试与覆盖率门禁，当前状态：**149 个用例全绿**（`mvn clean test`，未统计覆盖率）。
 覆盖率门禁阈值为 0.80，绑在 `verify` 阶段。
 
-其中数据库相关的用例是真库集成测试，会真的往本地 PostgreSQL 写数据：
-多数靠类上的 `@Transactional` 回滚，只有「重复用户名」那条不行——PostgreSQL 里一条语句报错
-会让整个事务进入 aborted 状态，必须让两次插入各自独立提交，因此它改为 `@AfterEach` 显式清理。
-**跑测试前库必须是起的。**
+其中数据库相关的用例是真库集成测试，会真的往本地 MySQL 写数据，全部靠类上的 `@Transactional`
+回滚，不留垃圾数据。**跑测试前库必须是起的**，且 `demo` 库与 `demo_user` 表已建好。
 
 **为什么引入 JaCoCo：**模板是派生项目的基线，它的正确性只能靠测试守住。而「测试写没写全」
 不能靠肉眼看——`jacoco:check` 把覆盖率变成构建门禁，漏测会直接让 `mvn verify` 失败。
@@ -410,9 +408,12 @@ public GroupedOpenApi orderApi() {
 >
 > 生产环境请关闭或加鉴权——接口清单属于敏感信息。
 
-## PostgreSQL + MyBatis-Plus
+## MySQL + MyBatis-Plus
 
 本分支在基座之上接了数据库。这一节按「痛点 → 规矩 → 配置 → 示例 → 验证」展开。
+
+> 姊妹分支 `springboot4/postgresql` 是同一套代码接 PostgreSQL。两边的差异集中在一处，
+> 见下文「与 PostgreSQL 分支的差异」。
 
 ### 痛点：三个坐标少一个都不行
 
@@ -422,7 +423,7 @@ MyBatis-Plus 在 Boot 4 上的接入，最容易翻车的不是代码而是依�
 |---------------------------------------|-----------------------------------|------------------------------------------------------------------------------------------------|
 | `mybatis-plus-spring-boot4-starter`   | Boot 4 专用 starter，传递引入 jdbc + mybatis-spring 4.x | 写成 `-spring-boot3-starter` 会把 Boot 3 的自动配置拉进来，与 Boot 4 打架                                              |
 | `mybatis-plus-jsqlparser`             | 分页插件 `PaginationInnerInterceptor` 的载体     | **自 3.5.9 起分页插件被拆出 starter**。不引这个类直接不存在（编译期报错）；勉强绕过则分页「看起来能跑但查的是全表」 |
-| `org.postgresql:postgresql`           | JDBC 驱动（runtime 即可）                 | 启动期不报错，第一条 SQL 才 `ClassNotFoundException`                                                        |
+| `com.mysql:mysql-connector-j`         | JDBC 驱动（runtime 即可）                 | 启动期不报错，第一条 SQL 才 `ClassNotFoundException`；老坐标 `mysql:mysql-connector-java` 已废弃              |
 
 > `mybatis-plus-jsqlparser` 有三个坐标，对应不同的 jsqlparser 版本：
 > `mybatis-plus-jsqlparser`（jsqlparser 5.2，默认选它）、`-5.0`、`-4.9`（项目里已有 jsqlparser 4.9 时用）。
@@ -450,45 +451,63 @@ MyBatis-Plus 在 Boot 4 上的接入，最容易翻车的不是代码而是依�
 > 生产忘了配，应用会「正常启动、正常写入」，只是数据全去了错误的地方——
 > **「连错库」比「连不上」危险得多**，往往几周后才被发现。
 > 想要「缺环境变量就启动失败」的硬约束，把占位符的默认值去掉即可：
-> 写 `${DB_URL}` 而不是 `${DB_URL:jdbc:postgresql://...}`。
+> 写 `${DB_URL}` 而不是 `${DB_URL:jdbc:mysql://...}`。
 
-### 配置：PostgreSQL 专属的两个参数
+### 配置：MySQL 专属的五个参数
 
 ```yaml
-url: jdbc:postgresql://localhost:5432/postgres?currentSchema=demo&ApplicationName=SpringVortexDemo&reWriteBatchedInserts=true
+url: jdbc:mysql://localhost:3306/demo?characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true&sslMode=DISABLED&allowPublicKeyRetrieval=true
 ```
 
-| 参数                       | 作用                                                                |
-|--------------------------|-------------------------------------------------------------------|
-| `currentSchema=demo`     | 把 `search_path` 钉在 `demo` 模式上。不写会走默认的 `"$user", public`，业务表散落进 `public` |
-| `ApplicationName`        | 出现在 `pg_stat_activity.application_name`，线上排障时一眼认出是哪个服务              |
-| `reWriteBatchedInserts`  | 把批量 insert 改写成多值 INSERT，批插性能提升数倍。`saveBatch` 不配它等于没提速              |
+| 参数                            | 作用                                                                      |
+|-------------------------------|-------------------------------------------------------------------------|
+| `characterEncoding=UTF-8`     | 连接字符集。不写会用服务端默认，中文可能变问号                                                 |
+| `serverTimezone`              | 驱动解析时间时用的时区。容器里 JVM 常是 UTC，不设会让接口时间与库差 8 小时                              |
+| `rewriteBatchedStatements`    | 把批量 insert 改并成一条多值 INSERT，`saveBatch` 提速的关键（等价于 PostgreSQL 的 `reWriteBatchedInserts`） |
+| `sslMode=DISABLED`            | 本地免证书连接用。**生产必须去掉**，否则等于明文传输                                             |
+| `allowPublicKeyRetrieval`     | MySQL 8+ 默认 `caching_sha2_password`，非 SSL 首次握手需要它才能取到公钥；**生产同样要去掉**      |
+
+> 想在 `performance_schema.session_connect_attrs` 里认出是哪个服务，可以再加
+> `connectionAttributes=program_name:SpringVortexDemo`（对应 PostgreSQL 的 `ApplicationName`）。
 
 **HikariCP 的超时是 `long` 毫秒，不是 Duration 字符串。** 写 `connection-timeout: 30s` 会在启动期报
 `NumberFormatException: For input string: "30s"`。同项目的 `spring.http.clients.*` 才是 Duration，两套单位别混。
 
+`idle-timeout` / `max-lifetime` / `keepalive-time` 三项都必须小于 MySQL 的 `wait_timeout`（默认 28800 秒），
+否则会拿到被服务端单方面掐断的半开连接。
+
 ### 建表：执行一次就行
 
 ```bash
-psql -h localhost -U jiancai.zhong -d postgres -f src/main/resources/db/schema.sql
+mysql -h 127.0.0.1 -u root -p < src/main/resources/db/schema.sql
 ```
 
-脚本幂等（`IF NOT EXISTS`），可重复执行。表建在独立的 `demo` 模式下，不往 `public` 里堆。
+脚本幂等（`IF NOT EXISTS`），可重复执行。MySQL 的 schema 就是 database，没有第二层命名空间，
+所以 PostgreSQL 分支里的 `demo` 模式，在这里对应一个名为 `demo` 的库。
 
 建表语句里有两处是配合 MyBatis-Plus 的，**改了会让注解失效**：
 
 ```sql
-version integer NOT NULL DEFAULT 0,   -- @Version 乐观锁
-deleted integer NOT NULL DEFAULT 0,   -- @TableLogic 逻辑删除
+version int NOT NULL DEFAULT 0,   -- @Version 乐观锁
+deleted int NOT NULL DEFAULT 0,   -- @TableLogic 逻辑删除
 ```
 
-用户名唯一用的是**部分唯一索引**而非普通唯一约束：
+用户名唯一用的是**普通唯一索引**：
 
 ```sql
-CREATE UNIQUE INDEX uk_demo_user_username ON demo.demo_user (username) WHERE deleted = 0;
+UNIQUE KEY uk_demo_user_username (username)
 ```
 
-只约束未删除的行——否则删掉一个用户后，他的用户名会被永久占用、无法重新注册。
+⚠️ **MySQL 没有「局部唯一索引」（partial index）。** PostgreSQL 分支写的是
+`CREATE UNIQUE INDEX ... WHERE deleted = 0`，只约束未删除的行；MySQL 不支持这个语法，
+上面这条约束覆盖全表，于是**被逻辑删除的用户仍占着用户名、同名无法重新注册**。
+
+想保留「删除后可复用」的语义，用生成列把已删除行置为 `NULL`（唯一索引允许多个 `NULL`）：
+
+```sql
+username_active varchar(64) GENERATED ALWAYS AS (IF(deleted = 0, username, NULL)) STORED,
+UNIQUE KEY uk_demo_user_username (username_active)
+```
 
 > 没有用 `spring.sql.init` 让应用启动时自动建表：那会让「应用启动」依赖「数据库可写」，
 > 库不可用时连上下文都起不来，所有测试一起失败。建表交给初始化脚本更稳妥。
@@ -517,7 +536,8 @@ DemoUserController         分页用 PageResult.of(IPage) 包装，不直接序�
 
 主键用 `IdType.ASSIGN_ID`（雪花 ID，MP 本地生成，插入无需回查）。代价是 ID 有 19 位，
 传到 JS 会超出 `Number` 安全整数上限——这条已经被基座的 Jackson `Long → String` 接住了，
-所以响应里 `id` 是字符串，前端不用再处理。想换成数据库自增，把 `id-type` 改成 `auto`、建表换成 `bigserial` 即可。
+所以响应里 `id` 是字符串，前端不用再处理。想换成数据库自增，把 `id-type` 改成 `auto`、
+建表列换成 `bigint NOT NULL AUTO_INCREMENT` 即可。
 
 ### 自定义 SQL：写在 `resources/mapper` 下
 
@@ -558,8 +578,8 @@ public interface DemoUserMapper extends BaseMapper<DemoUser> {
         <where>
             deleted = 0                                   <!-- 手写 SQL 必须自己带 -->
             <if test="keyword != null and keyword != ''">
-                AND (username ILIKE CONCAT('%', #{keyword}, '%')
-                  OR email   ILIKE CONCAT('%', #{keyword}, '%'))
+                AND (username LIKE CONCAT('%', #{keyword}, '%')
+                  OR email   LIKE CONCAT('%', #{keyword}, '%'))
             </if>
             <if test="minAge != null">
                 AND age &gt;= #{minAge}
@@ -569,6 +589,10 @@ public interface DemoUserMapper extends BaseMapper<DemoUser> {
     </select>
 </mapper>
 ```
+
+这里的 `LIKE` 就是大小写不敏感的——MySQL 8 默认排序规则 `utf8mb4_0900_ai_ci` 里的 `_ci` 即
+case insensitive（PostgreSQL 分支要写 `ILIKE` 才有同样效果）。想改成区分大小写，
+给列或查询指定 `_bin` / `_cs` 排序规则。
 
 **③ 经 Service 转一手再给 Controller**（Controller 只依赖 Service 接口）：
 
@@ -632,22 +656,47 @@ try {
    `com.baomidou.mybatisplus.extension.service.*` 迁到了 `com.baomidou.mybatisplus.spring.service.*`。
    照着老博客写会直接编译不过。
 3. **`@Version` 为 `null` 时乐观锁整段跳过，且不报错。** 而 `insert` 不会把数据库的
-   `DEFAULT 0` 回写进实体——所以「插入后拿同一个对象直接更新」是<b>没有并发保护</b>的，
+   `DEFAULT 0` 回写进实体——所以「插入后拿同一个对象直接更新」是**没有并发保护**的，
    生成的 SQL 里根本没有 `AND version = ?`。正确做法是先 `selectById` 再改。
 4. **MyBatis 一级缓存会让同一事务内两次 `selectById` 返回同一个对象实例。**
    想造「两份数据」模拟并发冲突是造不出来的（改了第一份等于改了第二份）。
    测试里改用 `JdbcTemplate` 直接在库里把 `version` 加 1 来模拟另一个事务抢先提交。
-5. **Homebrew 版 PostgreSQL 的默认用户不是 `postgres`。** 它是当前 macOS 用户名
-   （如 `jiancai.zhong`）；用 `postgres` 连会直接报 `role "postgres" does not exist`。
+5. **Homebrew 版 MySQL 的 root 初始没有密码。** JDBC 连不上时会报
+   `Access denied for user 'root'@'localhost' (using password: NO)`，
+   先执行一次 `ALTER USER 'root'@'localhost' IDENTIFIED BY '123456';` 设个密码即可。
 6. **自动填充要「字段注解 + 处理器」成对配置。** 字段标了 `@TableField(fill = ...)` 但处理器没赋值 →
    写库为 `null`；处理器赋值了但字段没标 → 不生效。另外 `strictXxxFill` 依赖 MP 的 `TableInfo` 缓存，
    脱离 Spring 容器直接 new 处理器来调会抛 `NullPointerException`——它的测试必须起容器。
+
+### 与 PostgreSQL 分支的差异
+
+两个分支的业务代码、测试、DTO 完全相同，差异只在下面这些地方：
+
+| 关注点            | `springboot4/postgresql`            | `springboot4/mysql`（本分支）                |
+|----------------|-------------------------------------|------------------------------------------|
+| JDBC 驱动坐标      | `org.postgresql:postgresql`         | `com.mysql:mysql-connector-j`            |
+| 驱动类            | `org.postgresql.Driver`             | `com.mysql.cj.jdbc.Driver`               |
+| 默认端口           | 5432                                | 3306                                     |
+| 命名空间           | 库 + 模式两层，靠 `currentSchema=demo`    | schema 即 database，一层，库名就叫 `demo`         |
+| 批量插入提速         | `reWriteBatchedInserts=true`        | `rewriteBatchedStatements=true`          |
+| 连接标识           | `ApplicationName` → `pg_stat_activity` | `connectionAttributes=program_name:...` → `session_connect_attrs` |
+| 无时区时间类型        | `timestamp`                         | `datetime`                               |
+| 大小写不敏感匹配       | `ILIKE`（`LIKE` 区分大小写）              | `LIKE` 即可（默认排序规则 `_ci`）                  |
+| 局部唯一索引         | 支持 `... WHERE deleted = 0`          | **不支持**，见上文生成列方案                         |
+| 主键自增（改用 auto 时） | `bigserial` / `identity`            | `bigint AUTO_INCREMENT`                  |
+| 分页方言           | `DbType.POSTGRE_SQL`                | `DbType.MYSQL`                           |
+| 表 / 列注释        | 独立的 `COMMENT ON` 语句                 | 建表时内联 `COMMENT`                          |
+| **语句报错后的事务**   | 整个事务 aborted，后续语句全部失败               | 只有该语句失败，事务可继续（见下）                        |
+
+最后一条会实实在在影响测试写法：PostgreSQL 下「重复用户名」那个用例不能加 `@Transactional`
+（第一次插入成功后事务已经不可用），只能让两次插入各自独立提交再手工清理；
+MySQL 下语句级错误不污染事务，所以本分支直接用了 `@Transactional`，测试结束时统一回滚。
 
 ### 验证
 
 ```bash
 # 1. 建库建表（只需一次）
-createdb postgres 2>/dev/null; psql -h localhost -U jiancai.zhong -d postgres -f src/main/resources/db/schema.sql
+mysql -h 127.0.0.1 -u root -p < src/main/resources/db/schema.sql
 
 # 2. 跑测试（真库集成测试会真的写库，靠 @Transactional 回滚，不留垃圾数据）
 mvn clean verify
@@ -664,7 +713,7 @@ curl http://localhost:8000/api/users/{id}
 切换到别的库不用改配置文件：
 
 ```bash
-DB_URL="jdbc:postgresql://129.204.226.206:5432/postgres" DB_USERNAME=wechat DB_PASSWORD=xxx mvn clean verify
+DB_URL="jdbc:mysql://10.0.0.12:3306/demo" DB_USERNAME=app DB_PASSWORD=xxx mvn clean test
 ```
 
 ## 本地启动
