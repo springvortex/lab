@@ -15,6 +15,8 @@
 | 测试          | `spring-boot-starter-webmvc-test`（JUnit 6 / AssertJ 3 / Mockito 5）            |
 | 工具          | Lombok 1.18.x、`spring-boot-devtools`（optional）                                |
 | 并发          | 虚拟线程，**默认开启**（`spring.threads.virtual.enabled=true`，需 Java 21+）               |
+| 数据库        | PostgreSQL 17 + HikariCP（Boot 默认连接池），驱动 `org.postgresql:postgresql`      |
+| ORM          | MyBatis-Plus 3.5.17（Boot 4 专用 starter + `mybatis-plus-jsqlparser`）          |
 
 > Boot 4 把 `spring-boot-starter-web` 改名为 `spring-boot-starter-webmvc`；测试依赖也按技术栈拆开了，
 > 用 `-webmvc-test` 即会自动带进 `spring-boot-starter-test`（已通过 `mvn dependency:tree` 核实），无需重复声明。
@@ -27,7 +29,18 @@ src/main/java/com/zjc/demo/
 ├── aop/WebLogAspect.java         # Controller 环绕日志切面
 ├── config/
 │   ├── WebConfig.java            # WebMvcConfigurer：跨域 + 拦截器扩展点
-│   └── JacksonConfig.java        # Jackson 3 定制：Long → String
+│   ├── JacksonConfig.java        # Jackson 3 定制：Long → String
+│   ├── MybatisPlusConfig.java    # @MapperScan + 分页/乐观锁拦截器链
+│   └── MybatisPlusMetaObjectHandler.java  # create_time / update_time 自动填充
+├── controller/
+│   ├── HelloController.java      # 示例，派生时可删
+│   └── DemoUserController.java   # 示例：单表 CRUD + 分页，派生时可删
+├── dto/
+│   ├── DemoUserSaveRequest.java  # 入参（不用实体接参），示例，派生时可删
+│   └── DemoUserAgeGroup.java     # 自定义 SQL 的返回 VO，示例，派生时可删
+├── entity/DemoUser.java          # 实体：@TableId / @Version / @TableLogic，示例
+├── mapper/DemoUserMapper.java    # Mapper：继承 BaseMapper 即有一整套单表 CRUD，示例
+├── service/DemoUserService(+Impl)  # 继承 IService / ServiceImpl，示例，派生时可删
 ├── constant/
 │   ├── ApiResponseConstant.java  # 标准响应码枚举（code 即 HTTP 状态码）
 │   ├── ErrorCodeConstant.java    # 错误码契约接口（业务方枚举实现它）
@@ -36,15 +49,20 @@ src/main/java/com/zjc/demo/
 │   ├── BusinessException.java    # 业务异常（code 即 HTTP 状态码）
 │   └── GlobalExceptionHandler.java  # 全局异常处理（@RestControllerAdvice）
 ├── filter/TraceIdFilter.java     # traceId 生成/沿用 + 写入 MDC
-├── web/ApiResponse.java          # 统一响应封装，可 toResponseEntity() 带状态码返回
-├── controller/HelloController.java  # 示例，派生时可删
+├── web/
+│   ├── ApiResponse.java          # 统一响应封装，可 toResponseEntity() 带状态码返回
+│   └── PageResult.java           # 分页响应结构，替代直接序列化 IPage
 └── service/HelloService(+Impl)      # 示例，派生时可删
 src/main/resources/
 ├── application.yaml              # 主配置（profile 在此激活）
 ├── config/application-pub.yaml   # pub 附加 profile：公共配置（超时 / 跨域 / Jackson / Actuator / springdoc）
+├── config/application-db.yaml    # db 附加 profile：数据源 + HikariCP + MyBatis-Plus（见下文）
+├── db/schema.sql                 # 建表脚本（幂等，手动执行一次）
+├── mapper/DemoUserMapper.xml     # 自定义 SQL（BaseMapper 表达不了的查询写这里）
 └── logback-spring.xml            # 日志（按级别分文件 + 异步 + 180 天滚动 + 生产落控制台）
 
 LICENSE                           # MIT，派生新项目时记得替换版权持有人
+lombok.config                     # 让 JaCoCo 忽略 Lombok 生成的方法
 ```
 
 配置文件这样分层，是为了让「同一个 key 只写一处」：
@@ -205,17 +223,13 @@ app:
 > `IllegalArgumentException`，且报错不指向配置位置——最后跨域坑。另外跨域时响应头默认被浏览器
 > 屏蔽，模板用 `exposedHeaders("X-Trace-Id")` 把 traceId 放行了，前端 JS 才读得到。
 >
-> 上面三项在 `config/application-pub.yaml` 里已经显式写出（代码内也有默认值，不配也能跑）。
-> `application-prod.yaml` 把 `allowed-origins` 覆盖成了占位域名 `https://your-domain.com`：
-> 这是刻意选的安全默认值，**部署前必须替换**，否则浏览器跨域会被拒——宁可先不通，也不要默认放通。
-> 已实测：prod 下带 `Origin: https://your-domain.com` 返回 200 且回 `Access-Control-Allow-Origin`，
-> 带其他来源返回 403。
+> 跨域三项在 `config/application-cors.yaml` 里显式写出（代码内也有默认值，不配也能跑）。
+> **生产必须收敛**：把 `allowed-origins` 覆盖成具体域名再上线，别让它停在 `*`。
 >
 > ⚠️ **多个来源要写成逗号字符串，不要写成 YAML 列表。** YAML 列表会被摊平成
 > `app.cors.allowed-origins[0]`、`[1]` 这样的索引键，而 profile 之间是**逐索引覆盖**的：
-> 只要 `application-prod.yaml` 的项数少于 `application-pub.yaml`，多出来的旧项（很可能就是 `*`）
+> 只要 `application-prod.yaml` 的项数少于 `application-cors.yaml`，多出来的旧项（很可能就是 `*`）
 > 就会残留下来，等于跨域没收敛。逗号字符串是单个标量键，覆盖干净无歧义。
-> `ProfileConfigTest` 里有一条断言专门钉死这件事。
 
 ### Jackson 全局配置
 
@@ -308,7 +322,13 @@ javadoc -Xdoclint:all,-missing -quiet -encoding UTF-8 -charset UTF-8 \
 
 ### 测试与覆盖率（JaCoCo）
 
-模板自带一套可运行的测试与覆盖率门禁，当前状态：**105 个用例全绿，行 / 分支覆盖率 100%**。
+模板自带一套可运行的测试与覆盖率门禁，当前状态：**149 个用例全绿**（`mvn clean test`，未统计覆盖率）。
+覆盖率门禁阈值为 0.80，绑在 `verify` 阶段。
+
+其中数据库相关的用例是真库集成测试，会真的往本地 PostgreSQL 写数据：
+多数靠类上的 `@Transactional` 回滚，只有「重复用户名」那条不行——PostgreSQL 里一条语句报错
+会让整个事务进入 aborted 状态，必须让两次插入各自独立提交，因此它改为 `@AfterEach` 显式清理。
+**跑测试前库必须是起的。**
 
 **为什么引入 JaCoCo：**模板是派生项目的基线，它的正确性只能靠测试守住。而「测试写没写全」
 不能靠肉眼看——`jacoco:check` 把覆盖率变成构建门禁，漏测会直接让 `mvn verify` 失败。
@@ -389,6 +409,263 @@ public GroupedOpenApi orderApi() {
 > 模板用 `ApiIntegrationTest` 里的两个运行期用例守着这件事。
 >
 > 生产环境请关闭或加鉴权——接口清单属于敏感信息。
+
+## PostgreSQL + MyBatis-Plus
+
+本分支在基座之上接了数据库。这一节按「痛点 → 规矩 → 配置 → 示例 → 验证」展开。
+
+### 痛点：三个坐标少一个都不行
+
+MyBatis-Plus 在 Boot 4 上的接入，最容易翻车的不是代码而是依赖坐标：
+
+| 坐标                                    | 作用                                | 少了 / 写错会怎样                                                                                     |
+|---------------------------------------|-----------------------------------|------------------------------------------------------------------------------------------------|
+| `mybatis-plus-spring-boot4-starter`   | Boot 4 专用 starter，传递引入 jdbc + mybatis-spring 4.x | 写成 `-spring-boot3-starter` 会把 Boot 3 的自动配置拉进来，与 Boot 4 打架                                              |
+| `mybatis-plus-jsqlparser`             | 分页插件 `PaginationInnerInterceptor` 的载体     | **自 3.5.9 起分页插件被拆出 starter**。不引这个类直接不存在（编译期报错）；勉强绕过则分页「看起来能跑但查的是全表」 |
+| `org.postgresql:postgresql`           | JDBC 驱动（runtime 即可）                 | 启动期不报错，第一条 SQL 才 `ClassNotFoundException`                                                        |
+
+> `mybatis-plus-jsqlparser` 有三个坐标，对应不同的 jsqlparser 版本：
+> `mybatis-plus-jsqlparser`（jsqlparser 5.2，默认选它）、`-5.0`、`-4.9`（项目里已有 jsqlparser 4.9 时用）。
+
+**别再引原生 `mybatis-spring-boot-starter`**：MP 的 starter 已经传递带进来了，两套自动配置会打架。
+
+### 规矩：数据库配置单独拆一个文件
+
+配置按这三处放，不要混：
+
+| 文件                                 | 放什么                                                    |
+|------------------------------------|--------------------------------------------------------|
+| `config/application-db.yaml`       | **全部**数据库配置：数据源 URL / 账号 / 密码、HikariCP、MyBatis-Plus             |
+| `application.yaml`                 | 只加一行 `include: - db`，把 db profile 叠加进来                     |
+| `application-{dev,test,prod}.yaml` | 不放数据库配置；换库走环境变量 `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` |
+
+拆出来的原因：这块内容最长、改动最频繁，塞进 `application.yaml` 会把「端口 / 应用名 / profile 激活」这些骨架配置淹掉。
+
+覆盖顺序仍然遵循既有约定：`include` 的 profile 排在 `active` 之前，所以环境文件里的同名 key 优先级更高。
+
+**换库只改环境变量，不改文件**：`DB_URL` / `DB_USERNAME` / `DB_PASSWORD` 三个占位符都能覆盖文件里的默认值，
+`DatabaseConfigTest.environmentVariablesOverrideDefaults` 钉死了这条路径。
+
+> ⚠️ **部署生产时务必显式设置这三个环境变量。** 文件里的默认值指向的是本机库；
+> 生产忘了配，应用会「正常启动、正常写入」，只是数据全去了错误的地方——
+> **「连错库」比「连不上」危险得多**，往往几周后才被发现。
+> 想要「缺环境变量就启动失败」的硬约束，把占位符的默认值去掉即可：
+> 写 `${DB_URL}` 而不是 `${DB_URL:jdbc:postgresql://...}`。
+
+### 配置：PostgreSQL 专属的两个参数
+
+```yaml
+url: jdbc:postgresql://localhost:5432/postgres?currentSchema=demo&ApplicationName=SpringVortexDemo&reWriteBatchedInserts=true
+```
+
+| 参数                       | 作用                                                                |
+|--------------------------|-------------------------------------------------------------------|
+| `currentSchema=demo`     | 把 `search_path` 钉在 `demo` 模式上。不写会走默认的 `"$user", public`，业务表散落进 `public` |
+| `ApplicationName`        | 出现在 `pg_stat_activity.application_name`，线上排障时一眼认出是哪个服务              |
+| `reWriteBatchedInserts`  | 把批量 insert 改写成多值 INSERT，批插性能提升数倍。`saveBatch` 不配它等于没提速              |
+
+**HikariCP 的超时是 `long` 毫秒，不是 Duration 字符串。** 写 `connection-timeout: 30s` 会在启动期报
+`NumberFormatException: For input string: "30s"`。同项目的 `spring.http.clients.*` 才是 Duration，两套单位别混。
+
+### 建表：执行一次就行
+
+```bash
+psql -h localhost -U jiancai.zhong -d postgres -f src/main/resources/db/schema.sql
+```
+
+脚本幂等（`IF NOT EXISTS`），可重复执行。表建在独立的 `demo` 模式下，不往 `public` 里堆。
+
+建表语句里有两处是配合 MyBatis-Plus 的，**改了会让注解失效**：
+
+```sql
+version integer NOT NULL DEFAULT 0,   -- @Version 乐观锁
+deleted integer NOT NULL DEFAULT 0,   -- @TableLogic 逻辑删除
+```
+
+用户名唯一用的是**部分唯一索引**而非普通唯一约束：
+
+```sql
+CREATE UNIQUE INDEX uk_demo_user_username ON demo.demo_user (username) WHERE deleted = 0;
+```
+
+只约束未删除的行——否则删掉一个用户后，他的用户名会被永久占用、无法重新注册。
+
+> 没有用 `spring.sql.init` 让应用启动时自动建表：那会让「应用启动」依赖「数据库可写」，
+> 库不可用时连上下文都起不来，所有测试一起失败。建表交给初始化脚本更稳妥。
+
+### 示例：四层怎么摆
+
+```
+DemoUserSaveRequest (dto)  只收客户端该填的字段，不用实体接参
+        ↓ BeanUtils.copyProperties(request, user)
+DemoUser (entity)          @TableName / @TableId(ASSIGN_ID) / @Version / @TableLogic + 填充注解
+        ↓
+DemoUserMapper             extends BaseMapper<DemoUser>，接口里什么都不用写
+        ↓
+DemoUserService(+Impl)     extends IService / ServiceImpl<Mapper, Entity>，实现类通常也是空的
+        ↓
+DemoUserController         分页用 PageResult.of(IPage) 包装，不直接序列化 IPage
+```
+
+入参 → 实体用 `org.springframework.beans.BeanUtils.copyProperties(request, user)` 按属性名拷贝。
+两个坑：**参数顺序是「源, 目标」**（`commons-beanutils` 那个包正好相反，抄过来会静默拷反方向）；
+拷贝没有编译期保护，两边字段名不一致时**不报错、只是拷不过去**。
+
+修改接口直接把入参拷到已落库的实体上（`BeanUtils.copyProperties(request, existing)`）——
+入参只有 `username` / `email` / `age`，同名属性被覆盖，`id` / `version` / `deleted` / 时间字段原样保留，
+乐观锁与逻辑删除都不会被绕过。
+
+主键用 `IdType.ASSIGN_ID`（雪花 ID，MP 本地生成，插入无需回查）。代价是 ID 有 19 位，
+传到 JS 会超出 `Number` 安全整数上限——这条已经被基座的 Jackson `Long → String` 接住了，
+所以响应里 `id` 是字符串，前端不用再处理。想换成数据库自增，把 `id-type` 改成 `auto`、建表换成 `bigserial` 即可。
+
+### 自定义 SQL：写在 `resources/mapper` 下
+
+目录位置是固定的，由 `application-db.yaml` 里的这一行决定：
+
+```yaml
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+```
+
+也就是说建 `src/main/resources/mapper/DemoUserMapper.xml` 就会被扫描到。三步走：
+
+**① 在 Mapper 接口加方法**（多参数必须标 `@Param`）：
+
+```java
+public interface DemoUserMapper extends BaseMapper<DemoUser> {
+    // 第一个参数是 IPage —— 分页插件靠它识别「这条要分页」
+    IPage<DemoUser> selectByCondition(IPage<DemoUser> page,
+                                      @Param("keyword") String keyword,
+                                      @Param("minAge") Integer minAge);
+
+    List<DemoUserAgeGroup> selectAgeGroupSummary();   // 聚合，返回自定义 VO
+}
+```
+
+**② 在 XML 里写 SQL**（`namespace` 必须是 Mapper 接口的全限定名）：
+
+```xml
+<mapper namespace="com.zjc.demo.mapper.DemoUserMapper">
+
+    <sql id="Base_Column_List">
+        id, username, email, age, version, deleted, create_time, update_time
+    </sql>
+
+    <select id="selectByCondition" resultType="DemoUser">
+        SELECT <include refid="Base_Column_List"/>
+        FROM demo_user
+        <where>
+            deleted = 0                                   <!-- 手写 SQL 必须自己带 -->
+            <if test="keyword != null and keyword != ''">
+                AND (username ILIKE CONCAT('%', #{keyword}, '%')
+                  OR email   ILIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="minAge != null">
+                AND age &gt;= #{minAge}
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
+</mapper>
+```
+
+**③ 经 Service 转一手再给 Controller**（Controller 只依赖 Service 接口）：
+
+```java
+@Override
+public IPage<DemoUser> searchByCondition(IPage<DemoUser> page, String keyword, Integer minAge) {
+    return baseMapper.selectByCondition(page, keyword, minAge);   // baseMapper 是父类字段，不用再注入
+}
+```
+
+手写 SQL 的四条规矩：
+
+| #  | 规矩                                                       | 不遵守会怎样                                    |
+|----|----------------------------------------------------------|-------------------------------------------|
+| 1  | **逻辑删除条件要自己写** `AND deleted = 0`                            | MP 的自动追加只对 `BaseMapper` 内置方法生效，手写 SQL 会把已删数据查出来 |
+| 2  | **分页靠第一个参数是 `IPage`**，XML 里别写 `limit`                      | 自己写会与插件改写打架，分页结果错乱                        |
+| 3  | **多参数必须 `@Param`**                                        | XML 只能写 `#{param1}` / `#{arg0}`，字段改名就全乱    |
+| 4  | **`resultType` 写短名要登记别名包**                                | `type-aliases-package` 没覆盖到的包会启动期报 `Cannot find class: Xxx` |
+
+XML 里 `<`、`>=` 这类符号要写成 `&lt;`、`&gt;=`，否则 XML 解析直接失败。
+
+返回的 VO 放 `dto` 包，列名 `age_group` / `user_count` 会按驼峰规则自动映射到
+`ageGroup` / `userCount`。注意计数是 `Long`，会被全局的 `Long → String` 一并转成字符串
+（`"userCount": "3"`），想保持数字就把字段类型改成 `Integer`。
+
+### 重复数据怎么给出明确提示
+
+用户名撞唯一索引时，MyBatis-Spring 会把 SQLState `23505` 翻译成 `DuplicateKeyException`。
+它既不是 `BusinessException` 也不是 Spring 的 4xx 异常，不处理就会掉进全局兜底分支，
+被当成服务端故障报成 **500「服务内部错误」**——排查方向被带偏，前端也只会弹一句没用的提示。
+
+本分支在 Controller 里就地捕获，转成 409 并说清是哪个值冲突：
+
+```java
+try {
+    demoUserService.save(user);
+} catch (DuplicateKeyException e) {
+    log.warn("新增用户失败，用户名已存在: username={}", user.getUsername(), e);
+    throw new BusinessException(ApiResponseConstant.CONFLICT.code(), "用户名「" + user.getUsername() + "」已存在");
+}
+```
+
+响应：
+
+```json
+{"success": false, "code": 409, "message": "用户名「alice」已存在", "data": null, "traceId": "..."}
+```
+
+两点说明：
+
+- **不要在插入前先查一次 `exists()` 来防重复**：查完到插入之间存在时间窗，并发下照样撞索引。
+  唯一索引是唯一可靠的防线，这里做的是「冲突发生后给出可读原因」。
+- 原始驱动报错（含约束名 `uk_demo_user_username`）只进日志，不外泄到响应里。
+  确实想把它原样返回的话，把 `e.getRootCause().getMessage()` 拼进 message 即可。
+
+### 六个必踩的坑（都是本分支实测出来的）
+
+1. **分页插件要放到执行链最后。** 官方文档明确要求「多个插件时把分页插件放到最后面」，
+   否则 COUNT SQL 可能统计不准。`MybatisPlusConfig` 里先加乐观锁、后加分页，`MybatisPlusConfigTest` 钉死了顺序。
+2. **`IService` / `ServiceImpl` 在 3.5.17 换了包。** 从
+   `com.baomidou.mybatisplus.extension.service.*` 迁到了 `com.baomidou.mybatisplus.spring.service.*`。
+   照着老博客写会直接编译不过。
+3. **`@Version` 为 `null` 时乐观锁整段跳过，且不报错。** 而 `insert` 不会把数据库的
+   `DEFAULT 0` 回写进实体——所以「插入后拿同一个对象直接更新」是<b>没有并发保护</b>的，
+   生成的 SQL 里根本没有 `AND version = ?`。正确做法是先 `selectById` 再改。
+4. **MyBatis 一级缓存会让同一事务内两次 `selectById` 返回同一个对象实例。**
+   想造「两份数据」模拟并发冲突是造不出来的（改了第一份等于改了第二份）。
+   测试里改用 `JdbcTemplate` 直接在库里把 `version` 加 1 来模拟另一个事务抢先提交。
+5. **Homebrew 版 PostgreSQL 的默认用户不是 `postgres`。** 它是当前 macOS 用户名
+   （如 `jiancai.zhong`）；用 `postgres` 连会直接报 `role "postgres" does not exist`。
+6. **自动填充要「字段注解 + 处理器」成对配置。** 字段标了 `@TableField(fill = ...)` 但处理器没赋值 →
+   写库为 `null`；处理器赋值了但字段没标 → 不生效。另外 `strictXxxFill` 依赖 MP 的 `TableInfo` 缓存，
+   脱离 Spring 容器直接 new 处理器来调会抛 `NullPointerException`——它的测试必须起容器。
+
+### 验证
+
+```bash
+# 1. 建库建表（只需一次）
+createdb postgres 2>/dev/null; psql -h localhost -U jiancai.zhong -d postgres -f src/main/resources/db/schema.sql
+
+# 2. 跑测试（真库集成测试会真的写库，靠 @Transactional 回滚，不留垃圾数据）
+mvn clean verify
+
+# 3. 手工验证
+mvn spring-boot:run
+curl -X POST http://localhost:8000/api/users \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"alice","email":"alice@example.com","age":18}'
+curl http://localhost:8000/api/users?current=1&size=10
+curl http://localhost:8000/api/users/{id}
+```
+
+切换到别的库不用改配置文件：
+
+```bash
+DB_URL="jdbc:postgresql://129.204.226.206:5432/postgres" DB_USERNAME=wechat DB_PASSWORD=xxx mvn clean verify
+```
 
 ## 本地启动
 

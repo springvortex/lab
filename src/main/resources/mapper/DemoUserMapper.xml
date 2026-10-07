@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+  自定义 SQL：BaseMapper 表达不了的查询（动态条件、多表关联、聚合统计）写在这里。
+
+  三个必须先知道的约定：
+  1. 命名空间必须是对应 Mapper 接口的全限定名，否则方法绑定不上（报错是 BindingException）；
+  2. 逻辑删除要自己写 —— MP 的自动追加 AND deleted = 0 只对 BaseMapper 的内置方法生效，
+     手写 SQL 它管不着，漏了会把已删除的数据查出来；
+  3. 第一个参数是 IPage 时，分页插件会自动改写这条 SQL（加 LIMIT/OFFSET 并先跑 COUNT），
+     不用自己拼分页，也不要自己写 limit。
+-->
+<mapper namespace="com.zjc.demo.mapper.DemoUserMapper">
+
+    <!-- 列清单抽出来复用，加字段时只改一处 -->
+    <sql id="Base_Column_List">
+        id, username, email, age, version, deleted, create_time, update_time
+    </sql>
+
+    <!--
+      动态条件 + 分页查询。
+      ILIKE 是 PostgreSQL 专属的大小写不敏感匹配（MySQL 用 LIKE 即可，因为默认不区分大小写）。
+      参数用 @Param 命名后，XML 里直接用名字引用，不要写 #{param1} / #{arg0}。
+    -->
+    <select id="selectByCondition" resultType="DemoUser">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM demo_user
+        <where>
+            <!-- 手写 SQL 必须自己带上逻辑删除条件 -->
+            deleted = 0
+            <if test="keyword != null and keyword != ''">
+                AND (username ILIKE CONCAT('%', #{keyword}, '%')
+                OR email ILIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="minAge != null">
+                AND age &gt;= #{minAge}
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
+
+    <!--
+      聚合统计：返回自定义 VO。
+      resultType 能写短名 DemoUserAgeGroup，靠的是 application-db.yaml 里的
+      mybatis-plus.type-aliases-package；不配置就得写全限定名。
+      age_group / user_count 会按 map-underscore-to-camel-case 自动映射到 VO 的驼峰字段。
+    -->
+    <select id="selectAgeGroupSummary" resultType="DemoUserAgeGroup">
+        SELECT CASE
+        WHEN age &lt; 18 THEN '未成年'
+        WHEN age &lt; 40 THEN '青年'
+        WHEN age &lt; 60 THEN '中年'
+        ELSE '老年'
+        END AS age_group,
+        COUNT(*) AS user_count
+        FROM demo_user
+        WHERE deleted = 0
+        GROUP BY age_group
+        ORDER BY user_count DESC, age_group
+    </select>
+
+</mapper>

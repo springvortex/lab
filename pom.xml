@@ -39,6 +39,10 @@
         <jacoco.minimum-coverage>0.80</jacoco.minimum-coverage>
         <!-- 接口文档：springdoc 大版本需与 Spring Boot 对齐（2.x→Boot 3，3.x→Boot 4） -->
         <springdoc.version>3.1.1</springdoc.version>
+        <!-- MyBatis-Plus：需显式锁版本（不在 Boot 依赖管理内）；starter 后缀必须带 spring-boot4，
+             用 spring-boot3-starter 会在 Boot 4 下解析到 Boot 3 的自动配置 -->
+        <mybatis-plus.version>3.5.17</mybatis-plus.version>
+        <!-- PostgreSQL JDBC 驱动由 Boot 依赖管理统一给出版本，无需自定义属性 -->
     </properties>
 
     <dependencies>
@@ -99,6 +103,33 @@
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>${springdoc.version}</version>
+        </dependency>
+
+        <!-- MyBatis-Plus：Boot 4 专用 starter，内部已传递 spring-boot-starter-jdbc（HikariCP）
+             与 mybatis-spring 4.x，不要再重复引 mybatis 原生 starter，否则两套自动配置打架 -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-spring-boot4-starter</artifactId>
+            <version>${mybatis-plus.version}</version>
+        </dependency>
+
+        <!-- 分页插件 PaginationInnerInterceptor：自 3.5.9 起被从 starter 中拆出，必须单独引入。
+             不引的话分页拦截器类直接不存在（编译期报错），分页查询会静默退化成「查全部再内存截断」。
+             三个可选坐标对应不同的 jsqlparser 版本：
+               mybatis-plus-jsqlparser      → jsqlparser 5.2（默认，选它）
+               mybatis-plus-jsqlparser-5.0  → jsqlparser 5.0
+               mybatis-plus-jsqlparser-4.9  → jsqlparser 4.9（项目里已有 4.9 时用，避免冲突） -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-jsqlparser</artifactId>
+            <version>${mybatis-plus.version}</version>
+        </dependency>
+
+        <!-- PostgreSQL 驱动：运行期才需要，编译期不直接引用其类型，故为 runtime -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
         </dependency>
     </dependencies>
 

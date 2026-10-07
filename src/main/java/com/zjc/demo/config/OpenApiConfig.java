@@ -89,6 +89,20 @@ public class OpenApiConfig {
 	}
 
 	/**
+	 * 演示用户分组：PostgreSQL + MyBatis-Plus 集成示例接口。
+	 *
+	 * <p>
+	 * 按 URL 前缀 {@code /api/users/**} 划分，与 {@code DemoUserController} 各方法上写的
+	 * 完整路径对齐；新增业务模块时照此加一个分组 Bean 即可。
+	 *
+	 * @return 演示用户接口分组
+	 */
+	@Bean
+	GroupedOpenApi demoUserApi() {
+		return GroupedOpenApi.builder().group("demo-user").displayName("演示用户").pathsToMatch("/api/users/**").build();
+	}
+
+	/**
 	 * 运维端点分组：健康检查与监控端点。
 	 *
 	 * <p>
