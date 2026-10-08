@@ -1,7 +1,13 @@
 -- 演示表：与 com.zjc.demo.entity.DemoUser 一一对应。
 --
 -- 执行方式：
---   mysql -h 127.0.0.1 -u root -p < src/main/resources/db/schema.sql
+--   mysql --default-character-set=utf8mb4 -h 127.0.0.1 -u root -p < src/main/resources/db/schema.sql
+--
+-- ⚠️ --default-character-set=utf8mb4 不能省！
+-- 中文版 Windows 上，mysql 客户端默认协商成 gbk（character_set_client/connection/results 全是 gbk），
+-- 而本文件是 UTF-8 编码。少了这个参数，文件里的中文会被当成 GBK 解读后再转存成 utf8mb4，
+-- 结果就是库里存进一串「涓婚敭锛岄洩鑺?」这样的双重编码乱码 —— 注意这**不是显示问题，是数据真的写坏了**，
+-- 而且建表语句本身能成功、不报任何错，只能靠 SELECT HEX(COLUMN_COMMENT) 才能发现。
 --
 -- 脚本幂等（IF NOT EXISTS），可重复执行。
 --
