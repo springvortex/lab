@@ -462,6 +462,10 @@ class ApiIntegrationTest {
 		/**
 		 * OpenAPI 描述文档可访问，且取自 {@code OpenApiConfig} 的元信息。
 		 *
+		 * <p>
+		 * 顺带断言加解密接口出现在总览里。注意「总览里有」<b>不等于</b>「Swagger UI 上看得见」—— 后者取决于有没有分组，见
+		 * {@link #jasyptGroupIsScoped()}。两条一起看才完整。
+		 *
 		 * @throws Exception MVC 调用失败
 		 */
 		@Test
@@ -469,7 +473,8 @@ class ApiIntegrationTest {
 		void apiDocsIsAvailable() throws Exception {
 			mockMvc.perform(get("/v3/api-docs")).andExpect(status().isOk()).andExpect(jsonPath("$.openapi").exists())
 					.andExpect(jsonPath("$.info.title").value("SpringVortexDemo API"))
-					.andExpect(jsonPath("$.info.version").value("0.0.1"));
+					.andExpect(jsonPath("$.info.version").value("0.0.1"))
+					.andExpect(jsonPath("$.paths['/api/jasypt/encrypt']").exists());
 		}
 
 		/**
@@ -507,6 +512,26 @@ class ApiIntegrationTest {
 		void actuatorGroupIsScoped() throws Exception {
 			mockMvc.perform(get("/v3/api-docs/actuator")).andExpect(status().isOk())
 					.andExpect(jsonPath("$.paths['/actuator/health']").exists())
+					.andExpect(jsonPath("$.paths['/hello']").doesNotExist());
+		}
+
+		/**
+		 * 加解密接口必须有独立分组，否则 Swagger UI 的下拉框里翻不到它。
+		 *
+		 * <p>
+		 * <b>这条用例在防什么：</b>Swagger UI 的下拉框只列分组、不列总览页。新写一个 Controller 却忘了在
+		 * {@code OpenApiConfig} 里加分组时，接口在 {@code /v3/api-docs} 总览里看得到、 在 UI
+		 * 页面上却完全找不到——只断言「总览里有」是抓不住这个问题的。
+		 *
+		 * @throws Exception MVC 调用失败
+		 */
+		@Test
+		@DisplayName("GET /v3/api-docs/jasypt：分组存在且只含加解密接口")
+		void jasyptGroupIsScoped() throws Exception {
+			mockMvc.perform(get("/v3/api-docs/jasypt")).andExpect(status().isOk())
+					.andExpect(jsonPath("$.info.title").value("SpringVortexDemo API"))
+					.andExpect(jsonPath("$.paths['/api/jasypt/encrypt']").exists())
+					.andExpect(jsonPath("$.paths['/api/jasypt/decrypt']").exists())
 					.andExpect(jsonPath("$.paths['/hello']").doesNotExist());
 		}
 	}

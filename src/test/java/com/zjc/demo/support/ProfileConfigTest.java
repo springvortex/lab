@@ -6,7 +6,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.ConfigDataApplicationContextInitializer;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.core.env.EnumerablePropertySource;
 import org.springframework.core.env.Environment;
+import org.springframework.core.env.PropertySource;
 
 /**
  * 配置文件（{@code application.yaml} + {@code config/application-*.yaml}）的守护测试。
@@ -20,6 +23,11 @@ import org.springframework.core.env.Environment;
  * <b>前置事实（已实测）：</b>{@code active: prod} + {@code include: pub} 时
  * {@code activeProfiles} 顺序为 {@code [pub, prod]}，后者优先，因此
  * {@code application-prod.yaml} 能覆盖 {@code application-pub.yaml}。
+ *
+ * <p>
+ * ⚠️ <b>已知遗留红测：</b>{@link #appPropertiesAreExplicit} 在 {@code template}
+ * 分支上本就是红的 ——{@code application-prod.yaml} 没有覆盖
+ * {@code app.cors.allowed-origins}，该用例却断言生产已收敛。 属于模板既有问题，改动前请先确认是不是自己引起的。
  *
  * @author jiancai.zhong
  */
@@ -35,6 +43,31 @@ class ProfileConfigTest {
 		new ApplicationContextRunner().withInitializer(new ConfigDataApplicationContextInitializer())
 				.withPropertyValues("spring.profiles.active=" + activeProfile)
 				.run(context -> consumer.accept(context.getEnvironment()));
+	}
+
+	/**
+	 * 读取属性的<b>原始声明值</b>，跳过 {@code ${...}} 占位符解析。
+	 *
+	 * <p>
+	 * {@link Environment#getProperty(String)} 会做占位符替换，遇到没有默认值、环境变量又没注入的 占位符时会直接抛
+	 * {@code PlaceholderResolutionException}。想断言「配的是不是占位符本身」时 这条路走不通——异常没法区分「压根没配这个
+	 * key」和「配了但值取不到」。因此这里直接遍历 属性源，只看「有没有这个 key、值长什么样」。
+	 *
+	 * @param env 环境
+	 * @param key 属性名
+	 * @return 配置里写的原始字符串，不存在或来源不可枚举时返回 {@code null}
+	 */
+	private static String rawProperty(Environment env, String key) {
+		ConfigurableEnvironment configurable = (ConfigurableEnvironment) env;
+		for (PropertySource<?> propertySource : configurable.getPropertySources()) {
+			if (propertySource instanceof EnumerablePropertySource<?> enumerable && enumerable.containsProperty(key)) {
+				Object value = enumerable.getProperty(key);
+				if (value != null) {
+					return String.valueOf(value);
+				}
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -96,5 +129,37 @@ class ProfileConfigTest {
 		// 标量 "*" 依旧能被读到、覆盖静默失效——这条断言就是为了钉死这种写法。
 		withProfile("prod",
 				env -> assertThat(env.getProperty("app.cors.allowed-origins")).isEqualTo("https://your-domain.com"));
+	}
+
+	/**
+	 * jasypt 加密组件：公共项来自 {@code application-jasypt.yaml}，密钥按环境分开。
+	 *
+	 * <p>
+	 * <b>为什么这条用例必须有：</b>jasypt 的配置漏了不会报错，只会在用到 {@code ENC(...)} 时 突然解不开。而「漏
+	 * include」这种失误更隐蔽——{@code application-jasypt.yaml} 写得再对， 不挂进
+	 * {@code application.yaml} 的 {@code include} 里就是一堆死配置。
+	 */
+	@Test
+	@DisplayName("jasypt：公共项已加载，密钥按环境分流")
+	void jasyptPropertiesAreBound() {
+		// 公共项：算法与前后缀必须在两个环境里都读得到
+		withProfile("dev", env -> {
+			assertThat(env.getProperty("jasypt.encryptor.algorithm")).isEqualTo("PBEWITHHMACSHA512ANDAES_256");
+			assertThat(env.getProperty("jasypt.encryptor.property.prefix")).isEqualTo("ENC(");
+			assertThat(env.getProperty("jasypt.encryptor.property.suffix")).isEqualTo(")");
+			assertThat(env.getProperty("jasypt.encryptor.iv-generator-classname"))
+					.isEqualTo("org.jasypt.iv.RandomIvGenerator");
+		});
+		// dev 的密钥明文写在配置里，本地开箱即用
+		withProfile("dev", env -> assertThat(env.getProperty("jasypt.encryptor.password")).isNotBlank());
+		// prod 的密钥必须是环境变量占位符，不能在仓库里出现明文。
+		// 用 rawProperty 读原始声明值：走 getProperty 的话这个 key 会直接抛
+		// PlaceholderResolutionException（环境变量没注入），异常本身并不能说明「配的就是占位符」，
+		// 反而把「压根没配」和「配了但没注入」混成同一种失败。
+		withProfile("prod", env -> {
+			String raw = rawProperty(env, "jasypt.encryptor.password");
+			assertThat(raw).isNotBlank().contains("${").contains("JASYPT_ENCRYPTOR_PASSWORD");
+			assertThat(raw).doesNotContain("Vortex@2026");
+		});
 	}
 }

@@ -89,6 +89,20 @@ public class OpenApiConfig {
 	}
 
 	/**
+	 * 配置项加解密分组：jasypt 演示接口。
+	 *
+	 * <p>
+	 * ⚠️ <b>Swagger UI 的下拉框只列分组，不列总览。</b>新写了 Controller 却忘了加分组， 接口在
+	 * {@code /v3/api-docs}（总览）里是能看到的，但 UI 页面上翻不到——是本项目最容易踩的 一个「接口明明写了却找不到」。
+	 *
+	 * @return 加解密接口分组
+	 */
+	@Bean
+	GroupedOpenApi jasyptApi() {
+		return GroupedOpenApi.builder().group("jasypt").displayName("配置项加解密").pathsToMatch("/api/jasypt/**").build();
+	}
+
+	/**
 	 * 运维端点分组：健康检查与监控端点。
 	 *
 	 * <p>

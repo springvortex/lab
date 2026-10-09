@@ -39,6 +39,8 @@
         <jacoco.minimum-coverage>0.80</jacoco.minimum-coverage>
         <!-- 接口文档：springdoc 大版本需与 Spring Boot 对齐（2.x→Boot 3，3.x→Boot 4） -->
         <springdoc.version>3.1.1</springdoc.version>
+        <!-- 配置项加密：jasypt 4.x 起支持 Boot 3.5+ 与 JDK 17+，不跟随 Boot 依赖管理 -->
+        <jasypt.version>4.0.4</jasypt.version>
     </properties>
 
     <dependencies>
@@ -99,6 +101,13 @@
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>${springdoc.version}</version>
+        </dependency>
+
+        <!-- 配置项加密：ENC(...) 包裹的值在 Environment 层透明解密，需显式锁版本 -->
+        <dependency>
+            <groupId>com.github.ulisesbocchio</groupId>
+            <artifactId>jasypt-spring-boot-starter</artifactId>
+            <version>${jasypt.version}</version>
         </dependency>
     </dependencies>
 

@@ -9,3 +9,6 @@ spring:
     include:
       - pub
       - cors
+      - jasypt
+
+demo: ENC(nKoyS1njhAMI5h0nY9X1YKkMSIFQ2MGtJDPo+Ga4qgQKljseB6Oq17KyxlL1wgHx)

@@ -6,3 +6,8 @@ springdoc:
     enabled: false
   swagger-ui:
     enabled: false
+
+# 生产环境的加密密钥：从环境变量读，配置文件里不落地明文
+jasypt:
+  encryptor:
+    password: ${JASYPT_ENCRYPTOR_PASSWORD}
