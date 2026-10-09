@@ -1,7 +1,7 @@
 spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/postgres?currentSchema=demo&ApplicationName=SpringVortexDemo&reWriteBatchedInserts=true}
-    username: ${DB_USERNAME:jiancai.zhong}
+    username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:123456}
     driver-class-name: org.postgresql.Driver
     hikari:
@@ -16,7 +16,9 @@ spring:
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
-  type-aliases-package: com.zjc.demo.entity,com.zjc.demo.dto
+  # 实体类别名：通配各模块的 entity 子包（含两层，如 user.admin.entity）。
+  # 粒度必须与 @MapperScan 的 **.mapper 对齐，否则模块内再分层时 XML 里的短类名会解析失败。
+  type-aliases-package: com.zjc.demo.**.entity
   configuration:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl

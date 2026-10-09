@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 加密配置模块自定义 SQL。namespace 必须与 EncryptedConfigMapper 全限定名一致 -->
+<mapper namespace="com.zjc.demo.jasypt.mapper.EncryptedConfigMapper">
+
+	<!-- 按配置键前缀查询；resultType 用短类名，依赖 type-aliases-package -->
+	<select id="selectByKeyPrefix" resultType="EncryptedConfig">
+		SELECT id, config_key, cipher_value, remark, deleted, create_time, update_time
+		FROM encrypted_config
+		WHERE deleted = 0
+		  AND config_key LIKE CONCAT(#{keyPrefix}, '%')
+		ORDER BY config_key ASC
+	</select>
+
+</mapper>
