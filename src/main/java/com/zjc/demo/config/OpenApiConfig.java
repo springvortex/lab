@@ -78,8 +78,7 @@ public class OpenApiConfig {
 	 * 示例接口分组：模板自带的演示接口。
 	 *
 	 * <p>
-	 * 派生新项目时，本分组与 {@code controller/HelloController}、 {@code src/test/.../support/}
-	 * 下的演示接口一起删除即可。
+	 * 派生新项目时，本分组与 {@code controller/HelloController} 下的演示接口一起删除即可。
 	 *
 	 * @return 示例接口分组
 	 */

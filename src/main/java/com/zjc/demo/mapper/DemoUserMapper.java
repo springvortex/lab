@@ -14,8 +14,8 @@ import com.zjc.demo.entity.DemoUser;
  *
  * <p>
  * 接口里<b>什么都不用写</b>——{@code insert / deleteById / updateById / selectById /
- * selectList / selectPage} 等方法由 {@code BaseMapper} 提供，MP 在启动时按实体上的注解
- * 生成对应 SQL。这就是 MP 相对原生 MyBatis 的主要收益：单表操作零 XML、零注解 SQL。
+ * selectList / selectPage} 等方法由 {@code BaseMapper} 提供，MP 在启动时按实体上的注解 生成对应
+ * SQL。这就是 MP 相对原生 MyBatis 的主要收益：单表操作零 XML、零注解 SQL。
  *
  * <p>
  * <b>什么时候才需要在这里加方法：</b>
@@ -27,9 +27,8 @@ import com.zjc.demo.entity.DemoUser;
  * {@code mybatis-plus.mapper-locations} 扫描），或用 MyBatis 注解写在这里。
  *
  * <p>
- * <b>注意事项：</b>接口不需要标 {@code @Mapper}，扫描由
- * {@code MybatisPlusConfig} 上的 {@code @MapperScan("com.zjc.demo.mapper")} 统一完成；
- * 重复标注不会报错，但会让新人搞不清到底哪个在生效。
+ * <b>注意事项：</b>接口不需要标 {@code @Mapper}，扫描由 {@code MybatisPlusConfig} 上的
+ * {@code @MapperScan("com.zjc.demo.mapper")} 统一完成； 重复标注不会报错，但会让新人搞不清到底哪个在生效。
  *
  * @author jiancai.zhong
  */
@@ -39,11 +38,10 @@ public interface DemoUserMapper extends BaseMapper<DemoUser> {
 	 * 按关键字与最小年龄做动态条件查询，并分页。
 	 *
 	 * <p>
-	 * SQL 在 {@code resources/mapper/DemoUserMapper.xml} 的
-	 * {@code selectByCondition} 里。<b>第一个参数必须是 {@code IPage}</b>：
-	 * 分页插件靠它识别「这条要分页」，随后自动追加 {@code LIMIT / OFFSET}
-	 * 并先跑一条 {@code COUNT} 把 {@code total} 填好——XML 里不要自己写 limit，
-	 * 写了会和插件打架，表现为分页结果莫名其妙。
+	 * SQL 在 {@code resources/mapper/DemoUserMapper.xml} 的 {@code selectByCondition}
+	 * 里。<b>第一个参数必须是 {@code IPage}</b>： 分页插件靠它识别「这条要分页」，随后自动追加
+	 * {@code LIMIT / OFFSET} 并先跑一条 {@code COUNT} 把 {@code total} 填好——XML 里不要自己写
+	 * limit， 写了会和插件打架，表现为分页结果莫名其妙。
 	 *
 	 * <p>
 	 * 两个提醒：
@@ -65,9 +63,8 @@ public interface DemoUserMapper extends BaseMapper<DemoUser> {
 	 * 按年龄段统计人数。
 	 *
 	 * <p>
-	 * 演示「自定义 SQL + 自定义 VO」：聚合结果没有对应的表，用一个 VO 接即可，
-	 * 列名 {@code age_group} / {@code user_count} 会按驼峰规则映射到
-	 * {@code DemoUserAgeGroup} 的同名字段。
+	 * 演示「自定义 SQL + 自定义 VO」：聚合结果没有对应的表，用一个 VO 接即可， 列名 {@code age_group} /
+	 * {@code user_count} 会按驼峰规则映射到 {@code DemoUserAgeGroup} 的同名字段。
 	 *
 	 * @return 各年龄段的人数，按人数倒序；没有数据时为空列表
 	 */

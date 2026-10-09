@@ -15,8 +15,7 @@ import lombok.NoArgsConstructor;
  * <p>
  * <b>为什么不直接返回 {@code IPage}：</b>{@code IPage} 的实现类 {@code Page} 上带着
  * {@code optimizeCountSql}、{@code searchCount}、{@code countId}、{@code maxLimit}
- * 这些纯内部字段，直接序列化会把它们一并吐给前端——既冗余，又等于把分页实现细节
- * 固化成了对外契约，以后换分页组件就会变成破坏性变更。
+ * 这些纯内部字段，直接序列化会把它们一并吐给前端——既冗余，又等于把分页实现细节 固化成了对外契约，以后换分页组件就会变成破坏性变更。
  *
  * <p>
  * <b>使用示例：</b>
@@ -28,8 +27,8 @@ import lombok.NoArgsConstructor;
  * }</pre>
  *
  * <p>
- * <b>注意事项：</b>{@code records} 为空时返回空列表而非 {@code null}，
- * 前端不必写 {@code data.records && data.records.length} 这种防御判断。
+ * <b>注意事项：</b>{@code records} 为空时返回空列表而非 {@code null}， 前端不必写
+ * {@code data.records && data.records.length} 这种防御判断。
  *
  * @param <T> 单条记录的类型
  * @author jiancai.zhong
@@ -71,8 +70,7 @@ public class PageResult<T> implements Serializable {
 	 *
 	 * <p>
 	 * 传入 {@code null} 时返回空结果（各计数为 0），而不是抛
-	 * {@code NullPointerException}——分页方法在异常分支下返回 {@code null} 是可能的，
-	 * 让调用方少写一个判空。
+	 * {@code NullPointerException}——分页方法在异常分支下返回 {@code null} 是可能的， 让调用方少写一个判空。
 	 *
 	 * @param page MyBatis-Plus 分页结果，可为 {@code null}
 	 * @param <T>  单条记录的类型

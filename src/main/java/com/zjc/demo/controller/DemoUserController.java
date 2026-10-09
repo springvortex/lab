@@ -3,7 +3,6 @@ package com.zjc.demo.controller;
 import java.util.List;
 
 import org.springframework.beans.BeanUtils;
-import org.springframework.beans.BeanUtils;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -39,25 +38,24 @@ import lombok.extern.slf4j.Slf4j;
  * 演示用户接口：一套完整的单表 CRUD + 分页，用来验证 PostgreSQL 与 MyBatis-Plus 的集成。
  *
  * <p>
- * 严格遵守模板的三条 Controller 约定：只做「接收参数 → 调用 Service → 包装响应」，
- * 返回值统一用 {@link ApiResponse}，不写 try-catch（异常交给
+ * 严格遵守模板的三条 Controller 约定：只做「接收参数 → 调用 Service → 包装响应」， 返回值统一用
+ * {@link ApiResponse}，不写 try-catch（异常交给
  * {@code GlobalExceptionHandler}）——例外只有一个：新增接口捕获了
- * {@link DuplicateKeyException}，因为「用户名重复」是用户输入问题，
- * 走全局兜底会被报成 500，详见该方法的说明。
+ * {@link DuplicateKeyException}，因为「用户名重复」是用户输入问题， 走全局兜底会被报成 500，详见该方法的说明。
  *
  * <p>
  * <b>注意事项：</b>
  * <ul>
  * <li>「资源不存在」用 {@code BusinessException(ApiResponseConstant.NOT_FOUND)} 抛出，
- * 由全局处理器转成 HTTP 404。不要返回 {@code ApiResponse.success(null)}——
- * 那样前端拿到的是 200 + 空数据，无法区分「查不到」与「查到但值为空」；</li>
+ * 由全局处理器转成 HTTP 404。不要返回 {@code ApiResponse.success(null)}—— 那样前端拿到的是 200 +
+ * 空数据，无法区分「查不到」与「查到但值为空」；</li>
  * <li>修改接口先 {@code getById} 再 {@code updateById}，而不是直接
- * {@code update(entity)}：前者能区分「记录不存在」（404）与「并发冲突」（409），
- * 后者只能拿到一个 {@code false}；</li>
- * <li>{@code @Version} 乐观锁由 MP 自动追加 {@code WHERE version = ?}，
- * 更新影响行数为 0 即代表版本已被别人改过，这里转成 409 让调用方重试；</li>
- * <li><b>URL 路径完整写在每个方法的注解上，类上不挂 {@code @RequestMapping}。</b>
- * 好处是搜 {@code "/api/users"} 能一步定位到具体方法，不用先看类级前缀再拼字符串。</li>
+ * {@code update(entity)}：前者能区分「记录不存在」（404）与「并发冲突」（409）， 后者只能拿到一个
+ * {@code false}；</li>
+ * <li>{@code @Version} 乐观锁由 MP 自动追加 {@code WHERE version = ?}， 更新影响行数为 0
+ * 即代表版本已被别人改过，这里转成 409 让调用方重试；</li>
+ * <li><b>URL 路径完整写在每个方法的注解上，类上不挂 {@code @RequestMapping}。</b> 好处是搜
+ * {@code "/api/users"} 能一步定位到具体方法，不用先看类级前缀再拼字符串。</li>
  * </ul>
  *
  * @author jiancai.zhong
@@ -81,16 +79,15 @@ public class DemoUserController {
 	 * 新增用户，返回新记录的主键（雪花 ID）。
 	 *
 	 * <p>
-	 * <b>这里刻意用 try-catch 包住 {@code save}，而不是交给全局异常兜底。</b>
-	 * 用户名重复时数据库抛的是 {@link DuplicateKeyException}（SQLState 23505），
-	 * 它既不是 {@link BusinessException} 也不是 Spring 的 4xx 异常，走全局兜底会被当成
-	 * 服务端故障报成 <b>500「服务内部错误」</b>——排查方向被带偏，前端也只会弹一句没用的提示。
-	 * 而「用户名已被占用」是典型的<u>用户输入问题</u>，理应给出 409 并说清是哪个值冲突。
+	 * <b>这里刻意用 try-catch 包住 {@code save}，而不是交给全局异常兜底。</b> 用户名重复时数据库抛的是
+	 * {@link DuplicateKeyException}（SQLState 23505）， 它既不是 {@link BusinessException}
+	 * 也不是 Spring 的 4xx 异常，走全局兜底会被当成 服务端故障报成
+	 * <b>500「服务内部错误」</b>——排查方向被带偏，前端也只会弹一句没用的提示。 而「用户名已被占用」是典型的<u>用户输入问题</u>，理应给出
+	 * 409 并说清是哪个值冲突。
 	 *
 	 * <p>
 	 * <b>为什么不在插入前先查一次 {@code exists()}</b>：查完到插入之间存在时间窗，
-	 * 并发下照样会撞唯一索引，所以「查重」只能减少冲突次数、不能替代冲突处理。
-	 * 唯一索引是唯一可靠的防线，这里做的是冲突发生后给出可读的原因。
+	 * 并发下照样会撞唯一索引，所以「查重」只能减少冲突次数、不能替代冲突处理。 唯一索引是唯一可靠的防线，这里做的是冲突发生后给出可读的原因。
 	 *
 	 * @param request 用户入参，用户名必填
 	 * @return 统一响应封装，{@code data} 为新记录主键
@@ -129,8 +126,8 @@ public class DemoUserController {
 	 * 分页查询用户，支持按用户名模糊匹配。
 	 *
 	 * <p>
-	 * 分页由 {@code PaginationInnerInterceptor} 拦截改写：它会先发一条 {@code COUNT}
-	 * 再发一条带 {@code LIMIT / OFFSET} 的查询，结果里的 {@code total} / {@code pages}
+	 * 分页由 {@code PaginationInnerInterceptor} 拦截改写：它会先发一条 {@code COUNT} 再发一条带
+	 * {@code LIMIT / OFFSET} 的查询，结果里的 {@code total} / {@code pages}
 	 * 都已算好，业务侧不需要自己写计数 SQL。
 	 *
 	 * @param current  页码，从 1 开始
@@ -141,12 +138,10 @@ public class DemoUserController {
 	@GetMapping("/api/users")
 	@Operation(summary = "分页查询用户")
 	public ApiResponse<PageResult<DemoUser>> page(@RequestParam(defaultValue = "1") @Min(1) long current,
-			@RequestParam(defaultValue = "10") @Min(1) long size,
-			@RequestParam(required = false) String username) {
+			@RequestParam(defaultValue = "10") @Min(1) long size, @RequestParam(required = false) String username) {
 		LambdaQueryWrapper<DemoUser> wrapper = Wrappers.<DemoUser>lambdaQuery()
 				// 条件构造器里传 boolean 开关，为 false 时该条件整段不拼进 SQL，省掉手写 if
-				.like(StringUtils.hasText(username), DemoUser::getUsername, username)
-				.orderByDesc(DemoUser::getId);
+				.like(StringUtils.hasText(username), DemoUser::getUsername, username).orderByDesc(DemoUser::getId);
 		IPage<DemoUser> page = demoUserService.page(new Page<>(current, size), wrapper);
 		return ApiResponse.success(PageResult.of(page));
 	}
@@ -155,27 +150,26 @@ public class DemoUserController {
 	 * 按条件查询用户（自定义 SQL 版本）。
 	 *
 	 * <p>
-	 * 与上面的 {@code /api/users} 的区别：那个走 {@code BaseMapper} 的 {@code page()}，
-	 * 条件由 {@code LambdaQueryWrapper} 拼；这个走 {@code resources/mapper/DemoUserMapper.xml}
-	 * 里的 {@code selectByCondition}，条件用 {@code <if>} 动态拼。
-	 * <b>什么时候该换成自定义 SQL：</b>条件特别多且带分支、要多表 join、要用数据库专属函数
-	 * （如 PostgreSQL 的 {@code ILIKE}），或者 Wrapper 拼出来的 SQL 性能不行。
+	 * 与上面的 {@code /api/users} 的区别：那个走 {@code BaseMapper} 的 {@code page()}， 条件由
+	 * {@code LambdaQueryWrapper} 拼；这个走 {@code resources/mapper/DemoUserMapper.xml}
+	 * 里的 {@code selectByCondition}，条件用 {@code <if>} 动态拼。 <b>什么时候该换成自定义
+	 * SQL：</b>条件特别多且带分支、要多表 join、要用数据库专属函数 （如 PostgreSQL 的 {@code ILIKE}），或者
+	 * Wrapper 拼出来的 SQL 性能不行。
 	 *
 	 * <p>
-	 * 分页参数照常传 {@code IPage}，分页插件会自动改写这条自定义 SQL——
-	 * XML 里不需要、也不应该自己写 {@code limit}。
+	 * 分页参数照常传 {@code IPage}，分页插件会自动改写这条自定义 SQL—— XML 里不需要、也不应该自己写 {@code limit}。
 	 *
-	 * @param current  页码，从 1 开始
-	 * @param size     每页条数
-	 * @param keyword  用户名 / 邮箱的模糊匹配关键字，不传则不过滤
-	 * @param minAge   最小年龄，不传则不过滤
+	 * @param current 页码，从 1 开始
+	 * @param size    每页条数
+	 * @param keyword 用户名 / 邮箱的模糊匹配关键字，不传则不过滤
+	 * @param minAge  最小年龄，不传则不过滤
 	 * @return 统一响应封装，{@code data} 为分页结果
 	 */
 	@GetMapping("/api/users/search")
 	@Operation(summary = "按条件查询用户（自定义 SQL）")
 	public ApiResponse<PageResult<DemoUser>> search(@RequestParam(defaultValue = "1") @Min(1) long current,
-			@RequestParam(defaultValue = "10") @Min(1) long size,
-			@RequestParam(required = false) String keyword, @RequestParam(required = false) Integer minAge) {
+			@RequestParam(defaultValue = "10") @Min(1) long size, @RequestParam(required = false) String keyword,
+			@RequestParam(required = false) Integer minAge) {
 		IPage<DemoUser> page = demoUserService.searchByCondition(new Page<>(current, size), keyword, minAge);
 		return ApiResponse.success(PageResult.of(page));
 	}
@@ -242,8 +236,7 @@ public class DemoUserController {
 	 * 按主键取用户，不存在时抛 404。
 	 *
 	 * <p>
-	 * 抽成私有方法是为了让「查详情 / 改 / 删」三处共用同一套不存在时的处理，
-	 * 避免某个接口漏判而返回 200 + 空数据。
+	 * 抽成私有方法是为了让「查详情 / 改 / 删」三处共用同一套不存在时的处理， 避免某个接口漏判而返回 200 + 空数据。
 	 *
 	 * @param id 主键
 	 * @return 用户信息，保证非 {@code null}

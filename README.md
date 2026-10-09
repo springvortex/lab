@@ -633,32 +633,49 @@ public class MybatisPlusConfig {
 
 ## 8. 怎么自检
 
-**跑测试前必须先把表建好**，否则所有真库用例都会报 `relation "demo_user" does not exist`：
+> ⚠️ **本分支不包含测试**。`release/v1.0.0` 是**发布产物分支**，`src/test` 整个目录、
+> 测试依赖（`spring-boot-starter-webmvc-test`）与 JaCoCo（覆盖率报告 + 0.80 门禁）
+> 都已被移除 —— 打出来的包更小，`mvn package` 也不用再等测试跑完。
+> 需要完整测试与覆盖率门禁请切到 `springboot4/postgresql` 或 `template`。
+
+所以这里的「自检」是**手工冒烟**：起服务，按下面的顺序把关键路径走一遍。
+
+**第 0 步：建表**（只需一次，脚本幂等）
 
 ```bash
 psql -h localhost -U postgres -d postgres -f src/main/resources/db/schema.sql
 ```
 
-然后：
+**第 1 步：起服务**
 
 ```bash
 export JAVA_HOME=D:/app/Java/jdk-25.0.2
-mvn -o clean verify
+mvn -o clean package
+java -jar target/spring-vortex-demo-0.0.1.jar
 ```
 
-**本机实测（PostgreSQL 18，建表后）：149 个用例全通过，`BUILD SUCCESS`，
-行覆盖率 97.00%、分支覆盖率 92.11%，均过 0.80 门禁。**
+**第 2 步：按顺序验这几条**
 
-⚠️ **跑测试需要一个真实的 PostgreSQL**。Mapper 层和 Controller 层的集成测试是打真库的，
-不是 H2 内存库，也不是 Mockito 打桩。
+```bash
+# ① 健康检查：应该返回 status=UP，且能看到 db 组件
+curl --noproxy '*' http://localhost:8000/actuator/health
 
-为什么非得是真库？因为分页方言、`timestamp` 与 `LocalDateTime` 的映射、逻辑删除追加的
-`AND deleted = 0`、乐观锁的 `WHERE version = ?`，**全都是"跑在别的数据库上才暴露"的行为**。
-用 H2 打桩能证明代码逻辑通顺，证明不了 PostgreSQL 上真的对。
+# ② 接口文档能打开
+curl --noproxy '*' -o /dev/null -w "%{http_code}\n" http://localhost:8000/v3/api-docs
 
-好消息是这些测试类标了 `@Transactional`，**跑完自动回滚**，不会在库里留垃圾数据。
+# ③ 写一条，再读回来（验证 PostgreSQL 真的连上了、表结构对得上）
+curl --noproxy '*' -X POST http://localhost:8000/api/users \
+     -H 'Content-Type: application/json' \
+     -d '{"username":"smoke-test","age":30,"email":"smoke@test.com"}'
+curl --noproxy '*' 'http://localhost:8000/api/users?current=1&size=10'
 
-### 跑挂了怎么排查
+# ④ 分页与逻辑删除（是这几个里最容易在别的库上翻车的）
+curl --noproxy '*' 'http://localhost:8000/api/users/age-groups'
+```
+
+①③ 是必看项：① 不通说明服务没起来，③ 不通基本就是库或表的问题。
+
+### 起不来怎么排查
 
 两种报错都很典型，看信息就能定位：
 
@@ -701,8 +718,6 @@ SELECT application_name, state, count(*) FROM pg_stat_activity GROUP BY 1, 2;
 SELECT count(*) FROM demo.demo_user WHERE deleted = 1;
 ```
 
-覆盖率报告在 `target/site/jacoco/index.html`。
-
 ---
 
 ## 附录：这分支到底改了什么
@@ -722,7 +737,10 @@ SELECT count(*) FROM demo.demo_user WHERE deleted = 1;
 | `dto/DemoUserSaveRequest.java`、`DemoUserAgeGroup.java` | 新增。入参 VO 与统计 VO |
 | `web/PageResult.java` | 新增。分页响应结构，替代直接序列化 `IPage` |
 | `db/schema.sql` | 新增。幂等建表脚本 |
-| 测试 | 新增 `DatabaseConfigTest`(4)、`MybatisPlusConfigTest`(2)、`MybatisPlusMetaObjectHandlerTest`(4)、`DemoUserMapperIntegrationTest`(9)、`DemoUserControllerIntegrationTest`(12)、`DemoUserConflictIntegrationTest`(1)、`DemoUserDuplicateUsernameIntegrationTest`(1)、`PageResultTest`(4) |
+
+> 本分支在 `springboot4/postgresql` 基础上**移除了测试体系**：删掉 `src/test` 整个目录、
+> `spring-boot-starter-webmvc-test` 依赖、JaCoCo 插件与其版本/门禁属性，
+> `lombok.config` 里只服务覆盖率的那条注释也一并去掉。定位是「可直接发布的干净产物」。
 
 脚手架其他部分（统一响应、traceId、异步、跨域、Jackson、Actuator、接口文档）没动，
 要看去 **`template`** 分支的 README。

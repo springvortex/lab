@@ -24,7 +24,7 @@ import lombok.Data;
  *
  * <pre>{@code
  * DemoUser user = new DemoUser();
- * BeanUtils.copyProperties(request, user);   // 注意 Spring 的参数顺序是（源, 目标）
+ * BeanUtils.copyProperties(request, user); // 注意 Spring 的参数顺序是（源, 目标）
  * demoUserService.save(user);
  * }</pre>
  *
@@ -35,8 +35,8 @@ import lombok.Data;
  * 入参字段改名、或实体字段改名，都不会报错，只会<b>静默拷不过去</b>（目标字段保持默认值）。
  * 一旦发现「传上来的值没落库」，先核对两边的字段名是否还一致；</li>
  * <li><b>不要用 {@code org.apache.commons.beanutils.BeanUtils}</b>——那个包的
- * {@code copyProperties} 参数顺序是<b>反过来</b>的 {@code (目标, 源)}，抄过来就静默拷反方向，
- * 而且它需要额外引入 commons-beanutils 依赖；</li>
+ * {@code copyProperties} 参数顺序是<b>反过来</b>的 {@code (目标, 源)}，抄过来就静默拷反方向， 而且它需要额外引入
+ * commons-beanutils 依赖；</li>
  * <li>校验注解要生效，Controller 参数上必须写 {@code @Valid}（或 {@code @Validated}），
  * 漏了注解不会报错，只是<b>静默不校验</b>；</li>
  * <li>请求体上的校验失败抛 {@code MethodArgumentNotValidException}， 方法参数上的校验失败抛

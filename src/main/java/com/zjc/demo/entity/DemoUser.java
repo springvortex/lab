@@ -22,11 +22,11 @@ import lombok.Data;
  * <ul>
  * <li>{@code @TableName}：类名与表名不一致时必写，否则 MP 按类名转下划线去猜表名；</li>
  * <li>{@code @TableId(type = IdType.ASSIGN_ID)}：雪花 ID 由 MP 在本地生成，
- * <b>不与数据库交互</b>，因此批量插入不需要逐条回查主键。代价是 ID 较长（19 位），
- * 传到 JS 会超出 {@code Number} 安全整数上限——本项目已用 Jackson 的
- * {@code Long → String} 全局转换接住（见 {@code JacksonConfig}）；</li>
- * <li>{@code @Version}：乐观锁。更新时自动追加 {@code AND version = ?} 并 {@code version + 1}，
- * 影响行数为 0 即代表发生并发冲突，需要业务侧重试或提示；</li>
+ * <b>不与数据库交互</b>，因此批量插入不需要逐条回查主键。代价是 ID 较长（19 位）， 传到 JS 会超出 {@code Number}
+ * 安全整数上限——本项目已用 Jackson 的 {@code Long → String} 全局转换接住（见
+ * {@code JacksonConfig}）；</li>
+ * <li>{@code @Version}：乐观锁。更新时自动追加 {@code AND version = ?} 并
+ * {@code version + 1}， 影响行数为 0 即代表发生并发冲突，需要业务侧重试或提示；</li>
  * <li>{@code @TableLogic}：逻辑删除。{@code removeById} 变成
  * {@code UPDATE ... SET deleted = 1}，查询自动追加 {@code AND deleted = 0}。</li>
  * </ul>
@@ -38,8 +38,8 @@ import lombok.Data;
  * 若列类型是 {@code timestamptz}，请改用 {@code OffsetDateTime} / {@code Instant}；</li>
  * <li>{@code createTime} / {@code updateTime} 的填充逻辑在
  * {@code MybatisPlusMetaObjectHandler}，<b>字段注解与处理器必须成对配置</b>才生效；</li>
- * <li>{@code @TableField(fill = ...)} 只影响 MP 的 {@code insert} / {@code update} 方法，
- * 手写 XML 的 SQL 不会触发填充。</li>
+ * <li>{@code @TableField(fill = ...)} 只影响 MP 的 {@code insert} / {@code update}
+ * 方法， 手写 XML 的 SQL 不会触发填充。</li>
  * </ul>
  *
  * @author jiancai.zhong
