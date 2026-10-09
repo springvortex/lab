@@ -2,6 +2,7 @@ package com.zjc.demo.exception;
 
 import java.util.stream.Collectors;
 
+import org.springdoc.api.OpenApiResourceNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -267,6 +268,29 @@ public class GlobalExceptionHandler {
 			return ApiResponse.<Void>failure(ApiResponseConstant.NOT_FOUND).toResponseEntity();
 		}
 		log.warn("请求路径不存在: {}", resourcePath);
+		return ApiResponse.<Void>failure(ApiResponseConstant.NOT_FOUND).toResponseEntity();
+	}
+
+	/**
+	 * 接口文档分组不存在。
+	 *
+	 * <p>
+	 * springdoc 在 {@code /v3/api-docs/{group}} 的 {@code {group}} 没匹配到任何已注册分组时抛出本异常。
+	 * 它<b>只继承 {@code RuntimeException}</b>，既不是 {@link ErrorResponseException} 的子类、
+	 * 也没实现 {@code ResponseStatus}，所以<b>接不住</b>下面的兜底分支，会被统一改写成 500 ——
+	 * 语义上明明是「请求了一个不存在的分组」，却报成服务端故障，误导排查方向也容易触发误告警。
+	 *
+	 * <p>
+	 * 本方法与 {@link #handleNoResourceFound(NoResourceFoundException)} 同为 404 语义： 调用方拿到的
+	 * {@code code} 与 HTTP 状态码都是 404，响应体提示语统一走
+	 * {@link ApiResponseConstant#NOT_FOUND}，不把 springdoc 的原始英文消息透出去。
+	 *
+	 * @param e 文档分组未找到异常
+	 * @return 404 响应
+	 */
+	@ExceptionHandler(OpenApiResourceNotFoundException.class)
+	public ResponseEntity<ApiResponse<Void>> handleOpenApiResourceNotFound(OpenApiResourceNotFoundException e) {
+		log.warn("接口文档分组不存在: {}", e.getMessage());
 		return ApiResponse.<Void>failure(ApiResponseConstant.NOT_FOUND).toResponseEntity();
 	}
 
