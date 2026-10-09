@@ -26,8 +26,8 @@ import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerIntercept
  *
  * <pre>{@code
  * // 分页：page() 返回的 IPage 里已有 total / pages，不必再手写 count 查询
- * Page<DemoUser> page = new Page<>(1, 10);
- * demoUserService.page(page, wrapper);
+ * Page<XxxEntity> page = new Page<>(1, 10);
+ * xxxService.page(page, wrapper);
  * }</pre>
  *
  * <p>

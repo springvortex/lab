@@ -30,7 +30,7 @@ import io.swagger.v3.oas.models.servers.Server;
  * <li>Swagger UI：{@code /swagger-ui.html}（会跳转到
  * {@code /swagger-ui/index.html}）</li>
  * <li>文档总览（全部接口）：{@code /v3/api-docs}</li>
- * <li>单个分组：{@code /v3/api-docs/{group}}，例如 {@code /v3/api-docs/demo}</li>
+ * <li>单个分组：{@code /v3/api-docs/{group}}，例如 {@code /v3/api-docs/jasypt}</li>
  * </ul>
  * Swagger UI 右上角的下拉框可切换分组。
  *
@@ -72,33 +72,6 @@ public class OpenApiConfig {
 				.components(new Components().addSecuritySchemes("traceId",
 						new SecurityScheme().type(SecurityScheme.Type.APIKEY).in(SecurityScheme.In.HEADER)
 								.name(TraceConstant.HEADER_NAME).description("链路追踪 ID，可留空；服务端会自动生成并写回响应头")));
-	}
-
-	/**
-	 * 示例接口分组：模板自带的演示接口。
-	 *
-	 * <p>
-	 * 派生新项目时，本分组与 {@code controller/HelloController} 下的演示接口一起删除即可。
-	 *
-	 * @return 示例接口分组
-	 */
-	@Bean
-	GroupedOpenApi demoApi() {
-		return GroupedOpenApi.builder().group("demo").displayName("示例接口").pathsToMatch("/hello", "/test/**").build();
-	}
-
-	/**
-	 * 演示用户分组：PostgreSQL + MyBatis-Plus 集成示例接口。
-	 *
-	 * <p>
-	 * 按 URL 前缀 {@code /api/users/**} 划分，与 {@code DemoUserController} 各方法上写的
-	 * 完整路径对齐；新增业务模块时照此加一个分组 Bean 即可。
-	 *
-	 * @return 演示用户接口分组
-	 */
-	@Bean
-	GroupedOpenApi demoUserApi() {
-		return GroupedOpenApi.builder().group("demo-user").displayName("演示用户").pathsToMatch("/api/users/**").build();
 	}
 
 	/**

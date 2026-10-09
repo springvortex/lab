@@ -109,15 +109,12 @@ MyBatis 有个众所周知的特点：SQL 你全权掌控，灵活，但单表�
 
 ## 4. 先跑起来看看效果
 
-### 第 1 步：建表
+> ⚠️ **本分支已移除演示业务**（`HelloController` / `DemoUserController` 及其 Service、Entity、
+> Mapper、DTO），建表脚本 `db/schema.sql` 也一并删除了。保留下来的只有 **jasypt 配置项加密**
+> 与脚手架的基础设施（统一响应、traceId、跨域、Jackson、Actuator、接口文档）。
+> 直接跳到「第 2 步：起服务」。
 
-```bash
-psql -h localhost -U postgres -d postgres -f src/main/resources/db/schema.sql
-```
-
-脚本幂等（`IF NOT EXISTS`），重复执行没问题。建一个独立的 `demo` schema 和 `demo_user` 表。
-
-### 第 2 步：起服务
+### 第 1 步：起服务
 
 ```bash
 export JAVA_HOME=D:/app/Java/jdk-25.0.2    # 终端默认 JDK 可能是 8，不切会编译失败
@@ -125,38 +122,26 @@ mvn -o clean verify
 java -jar target/spring-vortex-demo-0.0.1.jar --server.port=8000
 ```
 
-### 第 3 步：调接口
+### 第 2 步：调接口
 
 ```bash
-# 新增
-curl --noproxy '*' -X POST localhost:8000/api/users \
-  -H "Content-Type: application/json" \
-  -d '{"username":"alice","email":"alice@example.com","age":18}'
+# 加密一段明文（拿到密文后补上 ENC(...) 就能写进配置文件）
+curl --noproxy '*' "localhost:8000/api/jasypt/encrypt?plainText=my-db-password"
 
-# 查详情
-curl --noproxy '*' localhost:8000/api/users/1900000000000000001
+# 解密（密文含 + / 时要让 curl 替你编码，见下方说明）
+curl --noproxy '*' -G --data-urlencode "cipherText=<上一步返回的密文>" \
+     localhost:8000/api/jasypt/decrypt
 
-# 分页（第 1 页，每页 10 条，用户名模糊匹配）
-curl --noproxy '*' "localhost:8000/api/users?current=1&size=10&username=ali"
-
-# 按条件查（自定义 SQL，支持邮箱模糊匹配 + 最小年龄）
-curl --noproxy '*' "localhost:8000/api/users/search?keyword=example.com&minAge=18"
-
-# 年龄段统计
-curl --noproxy '*' localhost:8000/api/users/age-groups
-
-# 修改（带乐观锁）
-curl --noproxy '*' -X PUT localhost:8000/api/users/1900000000000000001 \
-  -H "Content-Type: application/json" \
-  -d '{"username":"alice","email":"new@example.com","age":19}'
-
-# 删除（逻辑删除，数据不会真消失）
-curl --noproxy '*' -X DELETE localhost:8000/api/users/1900000000000000001
+# 健康检查
+curl --noproxy '*' localhost:8000/actuator/health
 ```
 
 接口文档在 `http://localhost:8000/swagger-ui.html`（非生产环境自动开启）。
 
 > `curl` 走代理会返回奇怪的东西，**记得加 `--noproxy '*'`**。
+>
+> ⚠️ 密文默认是 Base64，可能含 `+`；在 query string 里 `+` 表示空格，手工拼接会导致解密失败。
+> 用 `-G --data-urlencode` 让 curl 处理。
 
 ---
 
