@@ -10,3 +10,4 @@ spring:
       - pub
       - cors
       - db
+      - jasypt

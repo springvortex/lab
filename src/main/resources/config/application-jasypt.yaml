@@ -1,0 +1,10 @@
+jasypt:
+  encryptor:
+    algorithm: PBEWITHHMACSHA512ANDAES_256
+    key-obtention-iterations: 1000
+    pool-size: 1
+    string-output-type: base64
+    iv-generator-classname: org.jasypt.iv.RandomIvGenerator
+    property:
+      prefix: ENC(
+      suffix: )

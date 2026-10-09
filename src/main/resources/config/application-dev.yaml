@@ -6,3 +6,8 @@ springdoc:
     enabled: true
   swagger-ui:
     enabled: true
+
+# 开发环境的加密密钥，明文写在这里方便本地调试
+jasypt:
+  encryptor:
+    password: Vortex@2026

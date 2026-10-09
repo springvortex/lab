@@ -37,6 +37,8 @@
         <springdoc.version>3.1.1</springdoc.version>
         <!-- MyBatis-Plus：不在 Boot 依赖管理内，需显式锁版本；starter 必须选 boot4 后缀 -->
         <mybatis-plus.version>3.5.17</mybatis-plus.version>
+        <!-- 配置项加密：jasypt 4.x 起才支持 Boot 4 / JDK 17+，不跟随 Boot 依赖管理 -->
+        <jasypt.version>4.0.4</jasypt.version>
     </properties>
 
     <dependencies>
@@ -90,6 +92,13 @@
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>${springdoc.version}</version>
+        </dependency>
+
+        <!-- 配置项加密：ENC(...) 包裹的值在 Environment 层透明解密，需显式锁版本 -->
+        <dependency>
+            <groupId>com.github.ulisesbocchio</groupId>
+            <artifactId>jasypt-spring-boot-starter</artifactId>
+            <version>${jasypt.version}</version>
         </dependency>
 
         <!-- MyBatis-Plus：Boot 4 专用 starter，已传递 spring-boot-starter-jdbc，勿再引原生 starter -->
