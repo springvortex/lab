@@ -121,6 +121,20 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- 测试：JUnit 5 + Mockito + AssertJ + MockMvc；集成测试直连远程库 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- @WebMvcTest 切片在独立模块里，starter-test 不带 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Boot 4 的 Flyway 自动配置在 spring-boot-flyway 模块里，只引 flyway-core 不会自动跑迁移 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

@@ -179,7 +179,28 @@ management.endpoints.web.exposure.include   # 默认 health,info,metrics
 `@MapperScan("com.zjc.demo.**.mapper")` 和 `type-aliases-package: com.zjc.demo.**.entity` 都是通配的，
 新模块不用改这两处配置。
 
-## 8. 踩过的坑
+## 8. 测试
+
+三层，按需加：
+
+| 层 | 示例 | 特点 |
+|---|---|---|
+| 纯单元 | `ApiResponseTest` | 不起 Spring，毫秒级 |
+| 切片 | `SysUserControllerTest`（`@WebMvcTest`） | 只装配 Controller + 全局异常处理器，Service 用 `@MockitoBean` mock |
+| 集成 | `SysUserMapperTest`（`@SpringBootTest`） | 起完整上下文，直连真库跑真实 SQL |
+
+```bash
+mvn test    # 集成用例会连 application-db.yaml 当前指向的库
+```
+
+约定：
+
+- 集成用例数据用 `it-` 前缀隔离，用例前后**物理清理**，不依赖、不污染库里已有的数据
+- mock 用 Spring 自带的 `@MockitoBean`——Boot 4 移除了 `@MockBean`
+- `@WebMvcTest` 在 `spring-boot-webmvc-test` 模块里，starter-test 不带，pom 已显式引入
+- 集成用例要连真库，所以 CI 只跑编译 + javadoc，测试不进流水线
+
+## 9. 踩过的坑
 
 **1. `mvn clean` 和 devtools 会打架。** clean 清空 `target` 后，devtools 可能在「XML 已拷贝、
 class 还没编译完」的空档重启，报 `Could not resolve type alias 'Xxx'` 或 `Failed to parse mapping resource`。
@@ -223,7 +244,7 @@ javadoc -Xdoclint:all,-missing -d target/javadoc -cp "$(cat target/cp.txt)" $(fi
 `server.tomcat.max-swallow-size` 决定：读不完就掐连接，前端只能看到网络错误而不是 413。
 pub 里把它配成比上传上限略大，就是为了让响应能送出去；不想读设 `-1`。
 
-## 9. 容器化
+## 10. 容器化
 
 ```bash
 mvn clean package -DskipTests
@@ -241,11 +262,14 @@ Dockerfile 是三阶段：Maven 构建 → jarmode 分层 → 运行时。日常
 - **容器时区默认 UTC**，而 `LocalDateTime.now()` 按 JVM 时区落库，所以 ENTRYPOINT 里带了
   `-Duser.timezone=Asia/Shanghai`。删掉的话时间会差 8 小时。
 
-## 10. 自检清单
+## 11. 自检清单
 
 ```bash
 # 编译 + 打包
 mvn clean package -DskipTests
+
+# 全量测试（含直连远程库的集成用例）
+mvn test
 
 # javadoc 规范（0 错 0 警告）
 # -d 必须写且指向 target/：不带 -d 会把 140 多个生成文件吐到项目根目录
