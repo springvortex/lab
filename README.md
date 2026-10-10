@@ -38,12 +38,13 @@ export JAVA_HOME=/path/to/jdk-25
 默认配置指向远程库（见 `application-db.yaml`）。本地开发想换库用环境变量，不用改文件：
 
 ```bash
-export DB_URL="jdbc:postgresql://localhost:5432/postgres?currentSchema=public"
+export DB_URL="jdbc:postgresql://localhost:5432/wechat?currentSchema=public"
 export DB_USERNAME=postgres DB_PASSWORD=123456
 ```
 
 **建表不用手动做** —— 迁移脚本在 `resources/db`，应用启动时 Flyway 自动执行。
-空库会跑全部迁移；非空库首次接入时按 `baseline-on-migrate` 把现状记为基线，不重跑历史脚本。
+空库会跑全部迁移；非空库首次接入时把现状记为基线（版本取 `baseline-version`，
+当前是 `"20261010.1"`），不重跑历史脚本。
 
 **迁移脚本的目录与命名**：
 
@@ -83,12 +84,13 @@ com.zjc.demo
 │   ├── entity/                 BaseEntity
 │   └── web/                    ApiResponse、PageResult
 ├── core/                       基础设施，与业务无关
-│   ├── aop/                    WebLogAspect：接口出入参与耗时
+│   ├── aop/                    WebLogAspect：接口出入参、耗时与敏感字段打码
 │   ├── async/                  MDC 透传 + 异步耗时埋点
 │   ├── client/                 出站请求的 traceId 透传
 │   ├── config/                 各项配置
 │   ├── exception/              BusinessException + 全局处理器
-│   └── filter/                 TraceIdFilter
+│   ├── filter/                 TraceIdFilter
+│   └── log/                    LogDesensitizeConverter：日志脱敏转换器
 ├── system/                     业务模块：系统管理
 │   ├── controller/             SysUserController、DictController
 │   └── dto/ entity/ mapper/ service/
@@ -149,13 +151,15 @@ com.zjc.demo
 | 文件 | 放什么 |
 |---|---|
 | `application.yaml` | 骨架：端口、应用名、profile 开关 |
-| `config/application-pub.yaml` | 全环境通用：虚拟线程、Tomcat、上传限制、Jackson 时区、Actuator 暴露清单 |
+| `config/application-pub.yaml` | 全环境通用：虚拟线程、Tomcat、上传限制、优雅停机、Jackson 时区、Actuator 暴露清单 |
 | `config/application-cors.yaml` | 跨域、Long 转 String |
 | `config/application-db.yaml` | 数据源、Hikari、MyBatis-Plus |
 | `config/application-jasypt.yaml` | 加密算法与前后缀 |
 | `config/application-{dev,test,prod}.yaml` | 环境差异项：接口文档开关、加密密钥 |
 
-优先级：`application-{profile}.yaml` > include 进来的 profile，所以 dev / prod 能覆盖公共值。
+优先级：后激活的 profile 覆盖先激活的——`include` 进来的在前、`active` 指定的在后
+（启动日志的激活顺序就是 `pub, cors, db, jasypt, dev`），所以 dev / prod 能覆盖公共值。
+已在真实配置下实测。
 
 几个常改的：
 
@@ -282,7 +286,7 @@ mvn javadoc:javadoc -Ddoclint=all,-missing -Dmaven.javadoc.failOnWarnings=true
 # 起服务后
 curl localhost:8000/actuator/health          # status 应为 UP
 curl localhost:8000/api/sys/dicts            # ["gender","user-status"]
-curl localhost:8000/api/sys/users?current=1&size=10
+curl "localhost:8000/api/sys/users?current=1&size=10"
 ```
 
 > 本机若配了 HTTP 代理，curl 打 localhost 会走代理导致连接失败，先
