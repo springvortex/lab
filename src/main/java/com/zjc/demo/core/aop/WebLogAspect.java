@@ -14,12 +14,15 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
+import java.util.regex.Pattern;
 
 /**
  * Web 接口日志切面：记录 {@code @RestController} 方法的入参、耗时与返回值。
  *
  * <p>
- * 入参<b>不做截断也不脱敏</b>，密码、手机号等敏感字段会被原样写进日志，敏感接口需自行处理。
+ * 敏感数据两层处理：本切面按字段名把 JSON 里的 password、phone 等值整体打码（结构化数据的主防线）；
+ * 自由文本里的手机号、身份证、银行卡由 logback 的 {@code %desensitize} 转换器兜底
+ * （{@code LogDesensitizeConverter}）。异常堆栈不经过任何脱敏，别把敏感数据塞进异常消息。
  *
  * @author jiancai.zhong
  */
@@ -40,6 +43,17 @@ public class WebLogAspect {
      * JSON 序列化中的 null 字面量
      */
     private static final String NULL_VALUE = "null";
+    /**
+     * 需要整体打码的敏感字段名，命中即把值替换为 ***。key 不区分大小写
+     */
+    private static final Pattern SENSITIVE_JSON_KEY = Pattern.compile(
+            "(\"(?:password|passwd|pwd|phone|mobile|idCard|idNo|bankCard|cvv|secret|token"
+                    + "|accessToken|authorization)\"\\s*:\\s*\")[^\"]*(\")",
+            Pattern.CASE_INSENSITIVE);
+    /**
+     * 敏感值打码后的占位符
+     */
+    private static final String MASKED = "***";
     @Resource
     private JsonMapper jsonMapper;
 
@@ -130,10 +144,23 @@ public class WebLogAspect {
             return obj.getClass().getSimpleName();
         }
         try {
-            return jsonMapper.writeValueAsString(obj);
+            return maskSensitiveValues(jsonMapper.writeValueAsString(obj));
         } catch (Exception e) {
             return obj.getClass().getSimpleName() + "@" + Integer.toHexString(obj.hashCode());
         }
+    }
+
+    /**
+     * 把 JSON 里敏感字段的值整体替换为 {@code ***}，key 不区分大小写。
+     *
+     * @param json 序列化后的 JSON 文本，可为 {@code null}
+     * @return 打码后的 JSON 文本
+     */
+    static String maskSensitiveValues(String json) {
+        if (json == null || json.isEmpty()) {
+            return json;
+        }
+        return SENSITIVE_JSON_KEY.matcher(json).replaceAll("$1" + MASKED + "$2");
     }
 
     /**

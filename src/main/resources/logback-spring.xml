@@ -4,11 +4,13 @@
     <springProperty name="application" scope="context" source="spring.application.name" defaultValue="app"/>
     <springProperty name="port" scope="context" source="server.port" defaultValue="0"/>
     <contextName>logback</contextName>
+    <!-- 日志脱敏兜底：手机号/身份证/银行卡(Luhn)。JSON 入参的字段级打码在 WebLogAspect，堆栈不经过脱敏 -->
+    <conversionRule conversionWord="desensitize" class="com.zjc.demo.core.log.LogDesensitizeConverter"/>
     <property name="LOG_HOME" value="logs/${application}"/>
     <property name="CONSOLE_LOG_PATTERN"
-              value="[%d{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%highlight(%-5level)] [${application}:${port}] [%X{traceId:--}] [%cyan(%logger{50})] [%msg]%n"/>
+              value="[%d{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%highlight(%-5level)] [${application}:${port}] [%X{traceId:--}] [%cyan(%logger{50})] [%desensitize]%n"/>
     <property name="FILE_LOG_PATTERN"
-              value="[%d{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%-5level] [${application}:${port}] [%X{traceId:--}] [%logger{50}] [%msg]%n"/>
+              value="[%d{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%-5level] [${application}:${port}] [%X{traceId:--}] [%logger{50}] [%desensitize]%n"/>
     <!-- traceId 由 TraceIdFilter 写入 MDC；取不到时输出占位符，保证非 HTTP 线程的日志列数稳定 -->
 
     <!-- 异步队列容量，单位是条不是字节 -->

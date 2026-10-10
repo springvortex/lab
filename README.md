@@ -124,6 +124,11 @@ com.zjc.demo
 **异常分两类。** 可预期的业务失败抛 `BusinessException`，全局处理器按 WARN 记一行、不打堆栈；
 程序缺陷抛其他运行时异常，走 ERROR + 完整堆栈。响应体里永远不含堆栈。
 
+**日志默认脱敏，分两层。** `WebLogAspect` 把 JSON 入参/出参里的 password、phone、idCard、token 等
+字段值整体替换成 `***`（主防线，覆盖无格式的密码）；自由文本里的手机号、身份证、银行卡（16 位
+且过 Luhn 校验，防止误伤雪花 ID/订单号）由 logback 的 `%desensitize` 转换器兜底。
+异常堆栈不经过脱敏，别把敏感数据塞进异常消息；要加敏感字段名改 `WebLogAspect.SENSITIVE_JSON_KEY`。
+
 **traceId 贯穿全链路。** `TraceIdFilter` 生成或沿用上游下发的 ID → 写进 MDC → 输出到日志 →
 回填响应体 → 出站请求自动带上 → 异步线程由 `TaskDecorator` 透传。
 排查时一条命令捞完整链路：`grep '<traceId>' logs/*/*.log`。
@@ -223,10 +228,10 @@ python3 -c "import xml.dom.minidom; xml.dom.minidom.parse('文件路径')"
 用它就永远填不上。`MybatisPlusMetaObjectHandler.updateFill` 因此改成了直接赋值。
 
 **6. `{@link}` 不能指向 Lombok 生成的方法。** getter 是编译期生成的，javadoc 工具看不到，
-`-Xdoclint` 会报「找不到引用」。校验命令：
+`-Xdoclint` 会报「找不到引用」。校验命令（输出进 target，不会污染 git status）：
 
 ```bash
-javadoc -Xdoclint:all,-missing -d target/javadoc -cp "$(cat target/cp.txt)" $(find src/main/java -name "*.java")
+mvn javadoc:javadoc -Ddoclint=all,-missing -Dmaven.javadoc.failOnWarnings=true
 ```
 
 **7. yaml 里的版本号必须加引号。** `baseline-version: 20261010.1` 不加引号会被 YAML 当成小数
@@ -271,9 +276,8 @@ mvn clean package -DskipTests
 # 全量测试（含直连远程库的集成用例）
 mvn test
 
-# javadoc 规范（0 错 0 警告）
-# -d 必须写且指向 target/：不带 -d 会把 140 多个生成文件吐到项目根目录
-javadoc -Xdoclint:all,-missing -d target/javadoc -cp "$(cat target/cp.txt)" $(find src/main/java -name "*.java")
+# javadoc 规范（0 错 0 警告，BUILD SUCCESS 即达标）
+mvn javadoc:javadoc -Ddoclint=all,-missing -Dmaven.javadoc.failOnWarnings=true
 
 # 起服务后
 curl localhost:8000/actuator/health          # status 应为 UP
