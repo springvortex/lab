@@ -1,15 +1,12 @@
-# 模板自定义配置：全部有代码内默认值（不配也能跑），这里显式写出来是为了“可发现、好改”。
+# 模板自定义配置。都有代码内默认值，写出来是为了好发现、好改。
 app:
   cors:
-    # 生产必须收敛到具体域名，见 application-prod.yaml 的覆盖。
-    # 多个来源用英文逗号分隔（"https://a.com,https://b.com"），不要写成 YAML 列表：
-    # 列表在 profile 之间是按索引逐项覆盖的，生产文件项数少于这里时会残留来源。
+    # 生产必须收敛到具体域名。多个来源用英文逗号分隔，不要写成 YAML 列表
     allowed-origins: "*"
-    # 预检请求（OPTIONS）结果缓存时长（秒），减少浏览器重复预检。
+    # 预检请求缓存时长（秒）
     max-age: 3600
-    # 允许携带 Cookie / Authorization；一旦为 true，allowed-origins 绝不能是 “*”，
-    # 否则 Spring 会在处理请求时抛 IllegalArgumentException，且报错不指向配置位置。
+    # 开启后 allowed-origins 不能是 "*"，否则请求时抛异常
     allow-credentials: false
   jackson:
-    # Long 转 String：规避 JS 双精度安全整数上限（2^53-1）导致 19 位雪花 ID 被静默截断。
+    # Long 转 String，规避 JS 安全整数上限截断雪花 ID
     long-to-string: true

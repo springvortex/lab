@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- namespace 必须与 SysUserMapper 全限定名一致 -->
+<mapper namespace="com.zjc.demo.system.mapper.SysUserMapper">
+
+    <!-- password 不在清单里，查询结果天然不含密码 -->
+    <sql id="Base_Column_List">
+        id, username, nickname, real_name, phone, email, avatar,
+		gender, birthday, status, dept_id, last_login_time, last_login_ip, remark,
+		deleted, create_by, create_time, update_by, update_time
+    </sql>
+
+    <select id="selectByCondition" resultType="SysUser">
+        SELECT
+        <include refid="Base_Column_List"/>
+        FROM sys_user
+        <where>
+            <!-- 手写 SQL 不会自动加逻辑删除条件 -->
+            deleted = 0
+            <if test="keyword != null and keyword != ''">
+                AND (username ILIKE CONCAT('%', #{keyword}, '%')
+                OR nickname ILIKE CONCAT('%', #{keyword}, '%')
+                OR phone LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="deptId != null">
+                AND dept_id = #{deptId}
+            </if>
+        </where>
+        ORDER BY id DESC
+    </select>
+
+</mapper>

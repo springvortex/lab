@@ -8,7 +8,7 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>4.1.1</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <relativePath/>
     </parent>
 
     <groupId>com.zjc</groupId>
@@ -18,7 +18,7 @@
     <name>SpringVortexDemo</name>
     <description>Spring Boot 4 脚手架模板</description>
 
-    <!-- 模板被复制到新项目后，记得把 <name> / <description> / 这里的版权年份与持有人一起改掉 -->
+    <!-- 派生新项目时改掉 name / description / 版权信息 -->
     <licenses>
         <license>
             <name>MIT License</name>
@@ -33,28 +33,28 @@
         <maven.compiler.target>25</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <!-- 接口文档：springdoc 大版本需与 Boot 对齐（2.x→Boot 3，3.x→Boot 4） -->
+        <!-- 以下三个不在 Boot 依赖管理内，必须显式锁版本 -->
+        <!-- springdoc：2.x 对应 Boot 3，3.x 对应 Boot 4 -->
         <springdoc.version>3.1.1</springdoc.version>
-        <!-- MyBatis-Plus：不在 Boot 依赖管理内，需显式锁版本；starter 必须选 boot4 后缀 -->
+        <!-- MyBatis-Plus：starter 必须用 boot4 后缀 -->
         <mybatis-plus.version>3.5.17</mybatis-plus.version>
-        <!-- 配置项加密：jasypt 4.x 起才支持 Boot 4 / JDK 17+，不跟随 Boot 依赖管理 -->
+        <!-- jasypt：4.x 起支持 Boot 4 -->
         <jasypt.version>4.0.4</jasypt.version>
     </properties>
 
     <dependencies>
-        <!-- Web MVC 与内嵌 Tomcat -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
 
-        <!-- 参数校验：@Valid / @NotBlank 等 Bean Validation 注解 -->
+        <!-- @Valid / @NotBlank 等校验注解 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
 
-        <!-- 开发期热重启；runtime + optional，生产包不引入 -->
+        <!-- 开发期热重启，生产包不引入 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-devtools</artifactId>
@@ -62,60 +62,59 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- 编译期生成 getter/setter/日志字段，不进运行期 classpath -->
+        <!-- 编译期生成 getter/setter/日志字段 -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
 
-        <!-- HTTP 客户端：RestClient（HTTP Interface / @HttpExchange 的运行底座） -->
+        <!-- RestClient，@HttpExchange 的运行底座 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-restclient</artifactId>
         </dependency>
 
-        <!-- 切面：WebLogAspect 依赖 AspectJ 注解 -->
+        <!-- 切面支持，WebLogAspect 依赖 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-aspectj</artifactId>
         </dependency>
 
-        <!-- 生产运维端点：健康检查 / 探针 / 指标，暴露清单由 management.* 控制 -->
+        <!-- 健康检查 / 探针 / 指标 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
-        <!-- 接口文档：OpenAPI 3 描述 + Swagger UI，需显式锁版本（不跟随 Boot 依赖管理） -->
+        <!-- Swagger UI -->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>${springdoc.version}</version>
         </dependency>
 
-        <!-- 配置项加密：ENC(...) 包裹的值在 Environment 层透明解密，需显式锁版本 -->
+        <!-- 配置项加密，ENC(...) 在 Environment 层透明解密 -->
         <dependency>
             <groupId>com.github.ulisesbocchio</groupId>
             <artifactId>jasypt-spring-boot-starter</artifactId>
             <version>${jasypt.version}</version>
         </dependency>
 
-        <!-- MyBatis-Plus：Boot 4 专用 starter，已传递 spring-boot-starter-jdbc，勿再引原生 starter -->
+        <!-- MyBatis-Plus，勿再引原生 mybatis-spring-boot-starter -->
         <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-spring-boot4-starter</artifactId>
             <version>${mybatis-plus.version}</version>
         </dependency>
 
-        <!-- 分页插件：自 3.5.9 起从 starter 拆出，不引则分页静默退化为「查全部再内存截断」 -->
+        <!-- 分页插件，自 3.5.9 起从 starter 拆出，必引 -->
         <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-jsqlparser</artifactId>
             <version>${mybatis-plus.version}</version>
         </dependency>
 
-        <!-- PostgreSQL 驱动：运行期才需要，编译期不直接引用其类型，故为 runtime -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
@@ -125,13 +124,13 @@
 
     <build>
         <plugins>
-            <!-- Spring Boot 打包：生成包含全部运行依赖的可执行 Fat JAR -->
+            <!-- 打包可执行 Fat JAR -->
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
 
-            <!-- 编译插件：Lombok 与配置处理器需显式声明注解处理器路径 -->
+            <!-- 显式声明注解处理器，Lombok 才会在编译期生效 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>

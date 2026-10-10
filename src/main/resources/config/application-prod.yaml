@@ -1,13 +1,12 @@
-# 接口文档（springdoc）。默认开启，方便 dev / test 直接用；生产在 application-prod.yaml 里关闭。
+# 生产环境：关闭接口文档
 springdoc:
-  # 是否把 actuator 端点也纳入文档分组
   show-actuator: false
   api-docs:
     enabled: false
   swagger-ui:
     enabled: false
 
-# 生产环境的加密密钥：只从环境变量读，配置文件里不落地明文
+# 生产密钥只从环境变量读，不落地明文
 jasypt:
   encryptor:
     password: ${JASYPT_ENCRYPTOR_PASSWORD}

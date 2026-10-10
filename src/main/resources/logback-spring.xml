@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- scan 关闭：打成 fat jar 后 logback-spring.xml 不在文件系统中、无法被监听，
-     开启会在每次启动时打印 "Watching .xml files requires that the main configuration file is
-     reachable as a URL" 警告，并在生产常驻一个无意义的扫描线程。
-     开发期改日志配置由 devtools 触发重启生效，不需要 logback 自己的热扫描。 -->
+<!-- scan 关闭：打包后配置文件不在文件系统里，开了只会打印警告并常驻一个无意义的扫描线程 -->
 <configuration scan="false" debug="false">
     <springProperty name="application" scope="context" source="spring.application.name" defaultValue="app"/>
     <springProperty name="port" scope="context" source="server.port" defaultValue="0"/>
@@ -12,23 +9,11 @@
               value="[%d{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%highlight(%-5level)] [${application}:${port}] [%X{traceId:--}] [%cyan(%logger{50})] [%msg]%n"/>
     <property name="FILE_LOG_PATTERN"
               value="[%d{yyyy-MM-dd HH:mm:ss.SSS}] [%thread] [%-5level] [${application}:${port}] [%X{traceId:--}] [%logger{50}] [%msg]%n"/>
-    <!--
-      traceId 由 filter/TraceIdFilter 写入 MDC，pattern 通过 MDC 占位符取值，
-      并在取不到时输出缺省占位符，保证非 HTTP 线程（定时任务、MQ 消费等）日志列数稳定，
-      便于日志平台按列解析。
-      排查时用响应体 / 响应头里的 traceId 捞一整条链路：
-        grep '某个 traceId' logs/info/*.log
-    -->
+    <!-- traceId 由 TraceIdFilter 写入 MDC；取不到时输出占位符，保证非 HTTP 线程的日志列数稳定 -->
 
-    <!-- 异步队列容量，单位是“条”不是字节。每个级别一条独立队列（AsyncAppender 只能挂一个下游）。 -->
+    <!-- 异步队列容量，单位是条不是字节 -->
     <property name="ASYNC_QUEUE_SIZE" value="8192"/>
-    <!--
-      丢弃阈值：注意它是“剩余容量的绝对条数”，不是百分比。
-      当 remainingCapacity 小于该值时，AsyncAppender 开始丢弃可丢弃事件；
-      这里取队列容量的 20%（8192 的 20% 约为 1638），与 logback 自身的默认算法（queueSize / 5）一致。
-      可丢弃事件只有 TRACE / DEBUG / INFO（AsyncAppender.isDiscardable 判定 level <= INFO），
-      WARN / ERROR 永远不会被丢弃，所以 ERROR 队列设 0 也不会少一条错误日志。
-    -->
+    <!-- 丢弃阈值是「剩余容量的绝对条数」不是百分比。只有 TRACE/DEBUG/INFO 会被丢，WARN/ERROR 永不丢 -->
     <property name="ASYNC_DISCARD_THRESHOLD" value="1638"/>
 
     <!-- DEBUG 级别文件输出 -->
@@ -143,9 +128,7 @@
         <appender-ref ref="ERROR_FILE"/>
     </appender>
 
-    <!-- 非生产环境：控制台同步输出，文件异步输出。
-         用 !prod 而非 dev,test，使 dev / test / 未指定或未知 profile（如 staging）都走这套配置，
-         避免激活未知 profile 时没有任何 appender 挂到 root，导致日志被静默丢弃。 -->
+    <!-- 非生产：控制台同步 + 文件异步。用 !prod 兜住未指定或未知 profile，否则 root 没有 appender、日志会被丢 -->
     <springProfile name="!prod">
         <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
             <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
@@ -157,7 +140,7 @@
             </encoder>
         </appender>
 
-        <!-- 业务代码输出 DEBUG，第三方依赖保持 INFO，避免噪声过大 -->
+        <!-- 业务代码 DEBUG，第三方依赖保持 INFO -->
         <logger name="com.zjc" level="DEBUG"/>
 
         <root level="INFO">
@@ -169,7 +152,7 @@
         </root>
     </springProfile>
 
-    <!-- 生产环境：异步文件输出 + 控制台输出。-->
+    <!-- 生产：异步文件输出 + 控制台输出 -->
     <springProfile name="prod">
         <appender name="PROD_STDOUT" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>

@@ -1,13 +1,13 @@
-# 接口文档（springdoc）。默认开启，方便 dev / test 直接用；生产在 application-prod.yaml 里关闭。
+# 开发环境：接口文档全开
 springdoc:
-  # 是否把 actuator 端点也纳入文档分组
+  # 是否把 actuator 端点也纳入文档
   show-actuator: true
   api-docs:
     enabled: true
   swagger-ui:
     enabled: true
 
-# 开发环境的加密密钥，明文写在这里方便本地调试
+# 开发环境的加密密钥，明文方便本地调试
 jasypt:
   encryptor:
     password: Vortex@2026
