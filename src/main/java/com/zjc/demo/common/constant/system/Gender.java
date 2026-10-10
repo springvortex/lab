@@ -1,5 +1,6 @@
 package com.zjc.demo.common.constant.system;
 
+import com.zjc.demo.common.dict.DictItem;
 import lombok.Getter;
 import java.util.Arrays;
 
@@ -9,7 +10,7 @@ import java.util.Arrays;
  * @author jiancai.zhong
  */
 @Getter
-public enum Gender {
+public enum Gender implements DictItem {
 
     UNKNOWN(0, "未知"),
     MALE(1, "男"),

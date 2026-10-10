@@ -1,4 +1,6 @@
 server:
+  # 停止时先拒绝新请求、等在途请求跑完，滚动发布不再掐断连接
+  shutdown: graceful
   tomcat:
     connection-timeout: 20s
     keep-alive-timeout: 20s
@@ -6,6 +8,9 @@ server:
     max-swallow-size: 2MB
 
 spring:
+  lifecycle:
+    # 优雅停机的等待上限，超过则强制关闭
+    timeout-per-shutdown-phase: 30s
   threads:
     virtual:
       enabled: true

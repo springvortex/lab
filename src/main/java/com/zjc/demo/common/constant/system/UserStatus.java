@@ -1,5 +1,6 @@
 package com.zjc.demo.common.constant.system;
 
+import com.zjc.demo.common.dict.DictItem;
 import lombok.Getter;
 import java.util.Arrays;
 
@@ -9,7 +10,7 @@ import java.util.Arrays;
  * @author jiancai.zhong
  */
 @Getter
-public enum UserStatus {
+public enum UserStatus implements DictItem {
 
     DISABLED(0, "禁用"),
     ENABLED(1, "启用"),

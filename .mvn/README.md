@@ -23,7 +23,7 @@ JDK 23 起该方法被标记为 terminally deprecated，每次编译都会刷出
     Unrecognized option: --sun-misc-unsafe-memory-access=allow
     Error: Could not create the Java Virtual Machine.
 
-因此本文件**只适用于 JDK 23+ 的分支**（当前仓库中是 `template` 与 `sample/boot4-jdk25`）。
+因此本文件 **只适用于 JDK 23+ 的分支**（当前仓库中是 `template` 与 `sample/boot4-jdk25`）。
 若把它们合并/同步到下列分支，必须删掉本文件，否则 `mvn` 完全无法启动：
 
     sample/boot3-jdk21   →  JDK 21（不认识该参数）

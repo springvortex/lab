@@ -1,0 +1,15 @@
+# 构建产物由镜像内的 Maven 重新生成，不需要拷进上下文
+target/
+
+# 版本控制与本地环境
+.git
+.gitignore
+.gitattributes
+.idea
+.mvn
+logs
+.workbuddy
+
+# 文档
+README.md
+LICENSE
