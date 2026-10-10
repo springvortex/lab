@@ -16,6 +16,7 @@ git clone -b release/v1.0.0 git@github.com:springvortex/lab.git
 | Spring Boot | 4.1.1 | 父 POM 统一管理版本 |
 | JDK | 25 | 构建和运行都必须是 25 |
 | PostgreSQL | 17.6 | 驱动 42.7.13 |
+| Flyway | 12.4.0 | 数据库迁移，**要引三个坐标**：`spring-boot-flyway`（Boot 4 把 Flyway 自动配置拆成了独立模块，缺了它启动时完全不跑迁移、零报错）、`flyway-core`、`flyway-database-postgresql`（Flyway 10 起各库支持被拆出，缺了报 `no database found for jdbc url`） |
 | MyBatis-Plus | 3.5.17 | 另有 `mybatis-plus-jsqlparser`——分页插件自 3.5.9 起被拆出，不引会编译不过 |
 | springdoc | 3.1.1 | Swagger UI，**大版本要跟 Boot 对齐**（2.x 对应 Boot 3，3.x 对应 Boot 4） |
 | jasypt | 4.0.4 | 配置项加密，4.x 起才支持 Boot 4 |
@@ -41,11 +42,22 @@ export DB_URL="jdbc:postgresql://localhost:5432/postgres?currentSchema=public"
 export DB_USERNAME=postgres DB_PASSWORD=123456
 ```
 
-建表脚本是幂等的，跑一次就行：
+**建表不用手动做** —— 迁移脚本在 `resources/db`，应用启动时 Flyway 自动执行。
+空库会跑全部迁移；非空库首次接入时按 `baseline-on-migrate` 把现状记为基线，不重跑历史脚本。
 
-```bash
-psql "$DB_URL" -f src/main/resources/db/schema.sql
+**迁移脚本的目录与命名**：
+
 ```
+src/main/resources/db/
+├── ddl/   V20261010.1__create_sys_user.sql     结构变更
+└── dml/   V20261010.2__init_dict_data.sql      初始化数据（需要时再建）
+```
+
+版本号 = **日期 + 当日序号**。两个目录**共用一条版本序列**——Flyway 的版本号是全局唯一的，
+`ddl/` 和 `dml/` 各写一个 `V1` 会直接报 `Found more than one migration with version 1`。
+两个目录已在 `application-db.yaml` 的 `spring.flyway.locations` 里登记。
+
+**不要改已执行过的脚本**（Flyway 会校验 checksum，改了启动直接失败），要调整就新增一个。
 
 **第三步：启动**
 
@@ -83,8 +95,8 @@ com.zjc.demo
 └── jasypt/                     业务模块：配置项加解密
 ```
 
-业务模块内部一律 `controller / service / service.impl / mapper / entity / dto`；
-`common` 和 `core` 里不出现任何业务概念。
+业务模块内部按 `controller / service / service.impl / mapper / entity / dto` 分层；
+没有持久化的模块可以只有前三个（如 `jasypt`）。`common` 和 `core` 里不出现任何业务概念。
 
 ## 4. 接口一览
 
@@ -161,7 +173,7 @@ management.endpoints.web.exposure.include   # 默认 health,info,metrics
 4. `order/service/OrderService.java` + `impl/` —— `extends IService` / `ServiceImpl<Mapper, Entity>`
 5. `order/controller/OrderController.java` —— 路径完整写在方法上，不在类上加 `@RequestMapping`
 6. `OpenApiConfig` 加一个 `GroupedOpenApi` Bean，**并把包名加进 `defaultApi()` 的 `packagesToExclude`**
-7. 建表语句加进 `db/schema.sql`
+7. 建表语句写成 `db/ddl/V<日期>.<序号>__create_order.sql`（版本号顺延，别改历史脚本）
 
 `@MapperScan("com.zjc.demo.**.mapper")` 和 `type-aliases-package: com.zjc.demo.**.entity` 都是通配的，
 新模块不用改这两处配置。
@@ -194,6 +206,17 @@ python3 -c "import xml.dom.minidom; xml.dom.minidom.parse('文件路径')"
 ```bash
 javadoc -Xdoclint:all,-missing -d /tmp/doc -cp "$(cat target/cp.txt)" $(find src/main/java -name "*.java")
 ```
+
+**7. yaml 里的版本号必须加引号。** `baseline-version: 20261010.1` 不加引号会被 YAML 当成小数
+解析成 Double，Flyway 拿到科学计数法 `2.02610101E7`，启动报
+`Version may only contain 0..9 and . (dot)`。写成 `baseline-version: "20261010.1"` 即可。
+同理适用于其他「长得像数字」的配置值。
+
+**8. Boot 4 的自动配置是拆开的，缺模块零报错。** 只引 `flyway-core` 不会跑迁移——
+`FlywayAutoConfiguration` 在独立的 `spring-boot-flyway` 模块里，缺了它启动日志里
+一行 flyway 都没有、也不报错。怀疑自动配置没生效时，先
+`jps -l` 找 pid，再 `jcmd <pid> VM.system_properties | tr ':' '\n' | grep -c flyway`
+看真实 classpath 里有没有对应模块。
 
 ## 9. 容器化
 

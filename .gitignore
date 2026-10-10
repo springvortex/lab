@@ -37,3 +37,6 @@ build/
 ### other ###
 /set_git_local.bat
 /.workbuddy/
+
+### macOS ###
+.DS_Store

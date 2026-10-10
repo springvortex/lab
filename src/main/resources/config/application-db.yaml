@@ -2,7 +2,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://129.204.226.206:5432/wechat?currentSchema=public&ApplicationName=SpringVortexDemo&reWriteBatchedInserts=true}
     username: ${DB_USERNAME:wechat}
-    password: ${DB_PASSWORD:myS3LXKyR7zLiFH8}
+    password: ${DB_PASSWORD:F6ReRSkRBiETWD2w}
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: VortexHikari
@@ -13,6 +13,15 @@ spring:
       keepalive-time: 120000
       minimum-idle: 5
       maximum-pool-size: 20
+
+  # 迁移脚本：db/ddl 放结构变更，db/dml 放初始化数据
+  flyway:
+    # 非空库首次接入 Flyway 时把现状记为基线，不重跑历史脚本；空库会照常执行全部迁移
+    baseline-on-migrate: true
+    # 当前库里 sys_user 已存在，基线记为 20261010.1，跳过建表脚本只跑之后的迁移
+    # 必须加引号：不加会被 YAML 当成小数，Flyway 收到 2.02610101E7 直接报错
+    baseline-version: "20261010.1"
+    locations: classpath:db/ddl,classpath:db/dml
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
