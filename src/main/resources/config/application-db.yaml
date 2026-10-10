@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: ${DB_URL:jdbc:postgresql://129.204.226.206:5432/wechat?currentSchema=public&ApplicationName=SpringVortexDemo&reWriteBatchedInserts=true}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/wechat?currentSchema=public&ApplicationName=SpringVortexDemo&reWriteBatchedInserts=true}
     username: ${DB_USERNAME:wechat}
-    password: ${DB_PASSWORD:F6ReRSkRBiETWD2w}
+    password: ${DB_PASSWORD:123456}
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: VortexHikari
