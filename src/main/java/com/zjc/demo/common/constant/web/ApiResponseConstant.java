@@ -19,6 +19,7 @@ public enum ApiResponseConstant implements ErrorCodeConstant {
     CONFLICT(409, "数据冲突"),
     METHOD_NOT_ALLOWED(405, "请求方法不支持"),
     UNSUPPORTED_MEDIA_TYPE(415, "不支持的请求体类型"),
+    PAYLOAD_TOO_LARGE(413, "请求体过大"),
     REQUEST_TIMEOUT(408, "请求处理超时"),
     UNAUTHORIZED(401, "未认证"),
     FORBIDDEN(403, "无权限"),

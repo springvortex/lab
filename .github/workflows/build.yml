@@ -1,0 +1,29 @@
+# CI 只做两件轻量的：编译 + javadoc 0 错 0 警告，与 README 自检清单一致。
+# 集成测试直连真库、需要凭据，不进 CI；测试体系落地后再评估。
+name: build
+
+on:
+  push:
+  pull_request:
+
+# 同一分支只留最新一次，旧的取消
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+
+      - name: 编译
+        run: mvn -B -ntp compile
+
+      - name: javadoc 校验
+        run: mvn -B -ntp javadoc:javadoc -Ddoclint=all,-missing -Dmaven.javadoc.failOnWarnings=true

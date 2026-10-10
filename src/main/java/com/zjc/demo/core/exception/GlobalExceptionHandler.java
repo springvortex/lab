@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -245,6 +246,23 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleAsyncTimeout(AsyncRequestTimeoutException e) {
         log.warn("异步请求处理超时: {}", e.getMessage());
         return ApiResponse.<Void>failure(ApiResponseConstant.REQUEST_TIMEOUT).toResponseEntity();
+    }
+
+    /**
+     * 上传文件超过限制。
+     *
+     * <p>
+     * multipart 在进 Controller 之前就完成解析，超限必然到这里。注意 Tomcat 的
+     * {@code server.tomcat.max-swallow-size}（pub 里配成比请求上限略大）决定超限后服务端还愿不愿意
+     * 把请求体读完——读不完连接会被直接掐断，客户端就看不到这个 413。
+     *
+     * @param e 上传超限异常
+     * @return 413 响应
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMaxUploadSize(MaxUploadSizeExceededException e) {
+        log.warn("上传文件超过限制: {}", e.getMessage());
+        return ApiResponse.<Void>failure(ApiResponseConstant.PAYLOAD_TOO_LARGE).toResponseEntity();
     }
 
     /**

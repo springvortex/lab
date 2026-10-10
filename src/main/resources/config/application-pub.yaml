@@ -5,7 +5,8 @@ server:
     connection-timeout: 20s
     keep-alive-timeout: 20s
     max-keep-alive-requests: 100
-    max-swallow-size: 2MB
+    # 比上传上限略大，超限时 Tomcat 才肯把请求体读完，客户端收得到 413；不想读设 -1
+    max-swallow-size: 25MB
 
 spring:
   lifecycle:
@@ -17,6 +18,11 @@ spring:
   mvc:
     async:
       request-timeout: 30s
+  servlet:
+    multipart:
+      # 默认 1MB，业务一传文件就超限
+      max-file-size: 20MB
+      max-request-size: 20MB
   http:
     clients:
       connect-timeout: 3s

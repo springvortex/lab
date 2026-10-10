@@ -144,7 +144,7 @@ com.zjc.demo
 | 文件 | 放什么 |
 |---|---|
 | `application.yaml` | 骨架：端口、应用名、profile 开关 |
-| `config/application-pub.yaml` | 全环境通用：虚拟线程、Tomcat、Jackson 时区、Actuator 暴露清单 |
+| `config/application-pub.yaml` | 全环境通用：虚拟线程、Tomcat、上传限制、Jackson 时区、Actuator 暴露清单 |
 | `config/application-cors.yaml` | 跨域、Long 转 String |
 | `config/application-db.yaml` | 数据源、Hikari、MyBatis-Plus |
 | `config/application-jasypt.yaml` | 加密算法与前后缀 |
@@ -158,6 +158,7 @@ com.zjc.demo
 app.cors.allowed-origins      # 默认 * ，生产必须收敛到具体域名
 app.jackson.long-to-string    # 雪花 ID 转字符串，默认开
 server.port                   # 默认 8000
+spring.servlet.multipart.max-file-size      # 默认 20MB，单文件上限
 management.endpoints.web.exposure.include   # 默认 health,info,metrics
 ```
 
@@ -204,7 +205,7 @@ python3 -c "import xml.dom.minidom; xml.dom.minidom.parse('文件路径')"
 `-Xdoclint` 会报「找不到引用」。校验命令：
 
 ```bash
-javadoc -Xdoclint:all,-missing -d /tmp/doc -cp "$(cat target/cp.txt)" $(find src/main/java -name "*.java")
+javadoc -Xdoclint:all,-missing -d target/javadoc -cp "$(cat target/cp.txt)" $(find src/main/java -name "*.java")
 ```
 
 **7. yaml 里的版本号必须加引号。** `baseline-version: 20261010.1` 不加引号会被 YAML 当成小数
@@ -217,6 +218,10 @@ javadoc -Xdoclint:all,-missing -d /tmp/doc -cp "$(cat target/cp.txt)" $(find src
 一行 flyway 都没有、也不报错。怀疑自动配置没生效时，先
 `jps -l` 找 pid，再 `jcmd <pid> VM.system_properties | tr ':' '\n' | grep -c flyway`
 看真实 classpath 里有没有对应模块。
+
+**9. 上传超限的 413 客户端可能收不到。** 超限后 Tomcat 还要不要把请求体读完由
+`server.tomcat.max-swallow-size` 决定：读不完就掐连接，前端只能看到网络错误而不是 413。
+pub 里把它配成比上传上限略大，就是为了让响应能送出去；不想读设 `-1`。
 
 ## 9. 容器化
 
@@ -243,7 +248,8 @@ Dockerfile 是三阶段：Maven 构建 → jarmode 分层 → 运行时。日常
 mvn clean package -DskipTests
 
 # javadoc 规范（0 错 0 警告）
-javadoc -Xdoclint:all,-missing -d /tmp/doc -cp "$(cat target/cp.txt)" $(find src/main/java -name "*.java")
+# -d 必须写且指向 target/：不带 -d 会把 140 多个生成文件吐到项目根目录
+javadoc -Xdoclint:all,-missing -d target/javadoc -cp "$(cat target/cp.txt)" $(find src/main/java -name "*.java")
 
 # 起服务后
 curl localhost:8000/actuator/health          # status 应为 UP
@@ -253,3 +259,6 @@ curl localhost:8000/api/sys/users?current=1&size=10
 
 > 本机若配了 HTTP 代理，curl 打 localhost 会走代理导致连接失败，先
 > `export no_proxy=localhost,127.0.0.1`。
+
+推送到 GitHub 后 CI 会自动跑编译 + javadoc 校验（`.github/workflows/build.yml`），
+本地没验过的这两项别急着推。
